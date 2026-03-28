@@ -1,0 +1,50 @@
+{
+    "__mock": {
+        "mode": "success"
+    },
+    "page": {
+        "title": "완료"
+    },
+    "view": {
+        "result": {
+            "headline": "확정되었습니다",
+            "desc": "내 신청에서 확인할 수 있습니다",
+            "details": [
+                {
+                    "k": "유형",
+                    "v": "대관/픽업"
+                },
+                {
+                    "k": "일시",
+                    "v": "로컬 상태에서 주입"
+                },
+                {
+                    "k": "장소",
+                    "v": "로컬 상태에서 주입"
+                },
+                {
+                    "k": "금액",
+                    "v": "로컬 상태에서 주입"
+                }
+            ]
+        },
+        "cta": {
+            "primary": {
+                "label": "내 신청 보기",
+                "to": "/?open=myApplications"
+            },
+            "secondary": {
+                "label": "다른 일정 찾기",
+                "to": "/busan"
+            }
+        }
+    },
+    "actions": {
+        "events": [
+            {
+                "name": "VIEW_MY_APPLICATIONS",
+                "log": true
+            }
+        ]
+    }
+}

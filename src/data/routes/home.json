@@ -1,0 +1,102 @@
+{
+  "__mock": { "mode": "success" },
+  "page": {
+    "title": "홈",
+    "subtitle": "부산 농구 일정 찾기"
+  },
+  "view": {
+    "hero": {
+      "headline": "오늘 농구, 여기서 확정까지",
+      "desc": "문자/계좌이체 대신 신청→결제(시뮬)→확정"
+    },
+    "inquiryGyms": [
+      {
+        "gymId": "g1",
+        "name": "에이치 스포츠 센터 반여점",
+        "address": "부산 해운대구 반여동",
+        "available": true,
+        "distanceKm": 2.3,
+        "to": "/gyms/g1",
+        "priceHint": "시간당 120,000원~"
+      },
+      {
+        "gymId": "g2",
+        "name": "○○ 체육관",
+        "address": "부산 수영구 광안동",
+        "available": false,
+        "distanceKm": 4.1,
+        "to": "/gyms/g2",
+        "priceHint": "시간당 90,000원~"
+      },
+      {
+        "gymId": "g3",
+        "name": "동래 실내 농구장",
+        "address": "부산 동래구 명장동",
+        "available": true,
+        "distanceKm": 5.8,
+        "to": "/gyms/g1",
+        "priceHint": "시간당 80,000원~"
+      }
+    ],
+    "nearbyRadiusKm": 10,
+    "mapSummary": {
+      "title": "부산 대관 지도",
+      "pins": [
+        { "gymId": "g1", "name": "에이치 스포츠 반여", "lat": 35.17, "lng": 129.10, "available": true },
+        { "gymId": "g2", "name": "○○ 체육관", "lat": 35.16, "lng": 129.12, "available": false },
+        { "gymId": "g3", "name": "동래 실내 농구장", "lat": 35.20, "lng": 129.08, "available": true }
+      ]
+    },
+    "nearbyLabel": "내 주변",
+    "outdoorRanking": [
+      {
+        "placeId": "out1",
+        "name": "광안리 해수욕장 인근 농구장",
+        "rank": 1,
+        "rating": 4.8,
+        "address": "부산 수영구 광안동",
+        "reviews": [
+          { "text": "바닥 좋고 조명 밝아서 야간에도 잘 보여요.", "rating": 5 },
+          { "text": "바다 보면서 농구하기 좋음.", "rating": 5 }
+        ]
+      },
+      {
+        "placeId": "out2",
+        "name": "동래구 체육공원 농구코트",
+        "rank": 2,
+        "rating": 4.5,
+        "address": "부산 동래구",
+        "reviews": [
+          { "text": "넓고 깨끗함. 주차 편해요.", "rating": 4 },
+          { "text": "주말에 사람 많음.", "rating": 5 }
+        ]
+      },
+      {
+        "placeId": "out3",
+        "name": "연제구 청소년 농구장",
+        "rank": 3,
+        "rating": 4.3,
+        "address": "부산 연제구",
+        "reviews": [
+          { "text": "실내 대신 날씨 좋을 때 가기 좋아요.", "rating": 4 }
+        ]
+      }
+    ],
+    "quickActions": [
+      { "id": "QA_BUSAN", "label": "부산에서 찾기", "to": "/busan" },
+      { "id": "QA_GYMS", "label": "체육관 보기", "to": "/gyms" },
+      { "id": "QA_PICKUP", "label": "픽업게임 보기", "to": "/pickup" }
+    ],
+    "highlights": [
+      { "id": "H1", "title": "시간표 기반 예약", "desc": "예약가능/정기대관/마감 표시" },
+      { "id": "H2", "title": "인원 할인", "desc": "소수 인원 연습 할인 정책 반영" },
+      { "id": "H3", "title": "연락처 비공개", "desc": "신청/결제/확정을 앱에서" }
+    ]
+  },
+  "actions": {
+    "events": [
+      { "name": "CLICK_QUICK_ACTION", "log": true },
+      { "name": "TOGGLE_ROLE", "log": true }
+    ]
+  }
+}

@@ -1,0 +1,70 @@
+{
+    "__mock": {
+        "mode": "success"
+    },
+    "page": {
+        "title": "결제"
+    },
+    "view": {
+        "summary": {
+            "type": "rent_or_pickup",
+            "title": "항목명 (query 기반으로 로컬 상태에서 주입)",
+            "meta": [
+                "일시/시간",
+                "장소",
+                "인원/가격"
+            ]
+        },
+        "payer": {
+            "name": {
+                "label": "이름",
+                "required": true
+            },
+            "phone": {
+                "label": "연락처(본인)",
+                "required": true,
+                "desc": "체육관/운영자에게 노출되지 않음(목업 정책)"
+            }
+        },
+        "paymentMethods": [
+            {
+                "id": "CARD",
+                "label": "카드(시뮬)"
+            },
+            {
+                "id": "EASY",
+                "label": "간편결제(시뮬)"
+            },
+            {
+                "id": "BANK",
+                "label": "계좌이체(시뮬)"
+            }
+        ],
+        "cta": {
+            "primary": {
+                "label": "결제하기",
+                "enabledWhen": "formValid"
+            },
+            "secondary": {
+                "label": "취소",
+                "to": "back"
+            }
+        }
+    },
+    "actions": {
+        "events": [
+            {
+                "name": "SUBMIT_PAYMENT",
+                "log": true
+            },
+            {
+                "name": "PAYMENT_SUCCESS_NAVIGATE",
+                "log": true
+            },
+            {
+                "name": "PAYMENT_FAIL",
+                "log": true
+            }
+        ]
+    }
+}

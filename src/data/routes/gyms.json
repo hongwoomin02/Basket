@@ -1,0 +1,69 @@
+{
+  "__mock": { "mode": "success" },
+  "page": { "title": "체육관" },
+  "view": {
+    "filters": {
+      "district": {
+        "label": "구/군",
+        "options": ["전체", "해운대구", "수영구", "동래구", "연제구"]
+      },
+      "availability": {
+        "label": "상태",
+        "options": ["전체", "예약가능", "일부마감", "정기대관많음"]
+      }
+    },
+    "list": [
+      {
+        "gymId": "g1",
+        "name": "에이치 스포츠 센터 반여점",
+        "address": "부산 해운대구 반여동",
+        "lat": 35.17,
+        "lng": 129.1,
+        "available": true,
+        "distanceKm": 2.3,
+        "isOutdoor": false,
+        "courts": 1,
+        "badges": ["예약가능"],
+        "thumbnail": "placeholder",
+        "priceHint": "시간당 120,000원~",
+        "to": "/gyms/g1"
+      },
+      {
+        "gymId": "g2",
+        "name": "○○ 체육관",
+        "address": "부산 수영구 광안동",
+        "lat": 35.16,
+        "lng": 129.12,
+        "available": false,
+        "distanceKm": 4.1,
+        "isOutdoor": false,
+        "courts": 1,
+        "badges": ["일부마감"],
+        "thumbnail": "placeholder",
+        "priceHint": "시간당 90,000원~",
+        "to": "/gyms/g2"
+      },
+      {
+        "gymId": "g3",
+        "name": "동래 실내 농구장",
+        "address": "부산 동래구 명장동",
+        "lat": 35.2,
+        "lng": 129.08,
+        "available": true,
+        "distanceKm": 5.8,
+        "isOutdoor": false,
+        "courts": 1,
+        "badges": ["예약가능"],
+        "thumbnail": "placeholder",
+        "priceHint": "시간당 80,000원~",
+        "to": "/gyms/g1"
+      }
+    ]
+  },
+  "actions": {
+    "events": [
+      { "name": "APPLY_FILTER", "log": true },
+      { "name": "OPEN_GYM_DETAIL", "log": true }
+    ]
+  }
+}

@@ -1,0 +1,110 @@
+{
+    "__mock": {
+        "mode": "success"
+    },
+    "page": {
+        "title": "체육관 상세"
+    },
+    "view": {
+        "gym": {
+            "gymId": "g1",
+            "name": "에이치 스포츠 센터 반여점",
+            "address": "부산 (미정)",
+            "courts": 1,
+            "rules": [
+                "정기대관 슬롯은 예약 불가",
+                "예약은 결제(시뮬) 완료 시 확정"
+            ]
+        },
+        "pricingPolicy": {
+            "base": "시간당 120,000원",
+            "headcountDiscount": [
+                {
+                    "maxPeople": 4,
+                    "label": "소수 연습 할인",
+                    "rate": "-20%"
+                },
+                {
+                    "maxPeople": 6,
+                    "label": "중간 인원",
+                    "rate": "-10%"
+                },
+                {
+                    "maxPeople": 10,
+                    "label": "기본",
+                    "rate": "0%"
+                }
+            ],
+            "assumption": "실제 할인 기준/금액은 사장 설정(콘솔)로 조정 가능"
+        },
+        "schedule": {
+            "weekOf": "2026-02-23",
+            "legend": [
+                {
+                    "status": "AVAILABLE",
+                    "label": "예약가능"
+                },
+                {
+                    "status": "REGULAR",
+                    "label": "정기대관"
+                },
+                {
+                    "status": "CLOSED",
+                    "label": "마감"
+                }
+            ],
+            "slots": [
+                {
+                    "slotId": "s1",
+                    "day": "월",
+                    "time": "12:00-15:00",
+                    "status": "AVAILABLE",
+                    "price": 120000
+                },
+                {
+                    "slotId": "s2",
+                    "day": "월",
+                    "time": "18:00-21:00",
+                    "status": "REGULAR",
+                    "price": null
+                },
+                {
+                    "slotId": "s3",
+                    "day": "화",
+                    "time": "12:00-15:00",
+                    "status": "AVAILABLE",
+                    "price": 120000
+                },
+                {
+                    "slotId": "s4",
+                    "day": "수",
+                    "time": "21:00-24:00",
+                    "status": "CLOSED",
+                    "price": null
+                }
+            ]
+        },
+        "cta": {
+            "primary": {
+                "label": "대관 예약하기",
+                "enabledWhen": "slotSelected"
+            }
+        }
+    },
+    "actions": {
+        "events": [
+            {
+                "name": "SELECT_SLOT",
+                "log": true
+            },
+            {
+                "name": "CHANGE_HEADCOUNT",
+                "log": true
+            },
+            {
+                "name": "GO_CHECKOUT_RENT",
+                "log": true
+            }
+        ]
+    }
+}

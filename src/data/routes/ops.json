@@ -1,0 +1,49 @@
+{
+    "__mock": {
+        "mode": "success"
+    },
+    "page": {
+        "title": "OPS"
+    },
+    "view": {
+        "mockModes": [
+            "success",
+            "empty",
+            "error"
+        ],
+        "routeTargets": [
+            "home",
+            "busan",
+            "gyms",
+            "gymDetail",
+            "pickup",
+            "pickupDetail",
+            "checkout",
+            "success",
+            "owner",
+            "organizer"
+        ],
+        "eventLog": {
+            "enabled": true,
+            "items": [
+                {
+                    "ts": "local",
+                    "event": "OPEN_APP",
+                    "meta": {}
+                }
+            ]
+        }
+    },
+    "actions": {
+        "events": [
+            {
+                "name": "OPS_SET_ROUTE_MODE",
+                "log": true
+            },
+            {
+                "name": "OPS_CLEAR_LOG",
+                "log": true
+            }
+        ]
+    }
+}

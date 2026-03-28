@@ -1,0 +1,70 @@
+{
+    "__mock": {
+        "mode": "success"
+    },
+    "page": {
+        "title": "부산"
+    },
+    "view": {
+        "tabs": [
+            {
+                "id": "TAB_RENT",
+                "label": "대관"
+            },
+            {
+                "id": "TAB_PICKUP",
+                "label": "픽업"
+            }
+        ],
+        "rentPreview": {
+            "count": 12,
+            "items": [
+                {
+                    "gymId": "g1",
+                    "name": "에이치 스포츠 센터 반여점",
+                    "badge": "예약가능",
+                    "nextSlot": "오늘 12:00"
+                },
+                {
+                    "gymId": "g2",
+                    "name": "○○ 체육관",
+                    "badge": "일부마감",
+                    "nextSlot": "내일 18:00"
+                }
+            ],
+            "to": "/gyms"
+        },
+        "pickupPreview": {
+            "count": 7,
+            "items": [
+                {
+                    "gameId": "p10",
+                    "title": "[부산] 수요일 픽업게임",
+                    "badge": "모집중",
+                    "people": "1/18",
+                    "time": "22:00~00:30"
+                },
+                {
+                    "gameId": "p11",
+                    "title": "[부산] 금요일 야간",
+                    "badge": "마감",
+                    "people": "18/18",
+                    "time": "21:00~23:00"
+                }
+            ],
+            "to": "/pickup"
+        }
+    },
+    "actions": {
+        "events": [
+            {
+                "name": "SWITCH_TAB",
+                "log": true
+            },
+            {
+                "name": "CLICK_CARD",
+                "log": true
+            }
+        ]
+    }
+}

@@ -1,0 +1,95 @@
+{
+    "__mock": {
+        "mode": "success"
+    },
+    "page": {
+        "title": "사장 콘솔"
+    },
+    "view": {
+        "gymProfile": {
+            "gymId": "g1",
+            "name": "에이치 스포츠 센터 반여점",
+            "address": "부산 해운대구 반여동",
+            "courts": 1
+        },
+        "scheduleEditor": {
+            "weekOf": "2026-02-23",
+            "slots": [
+                {
+                    "slotId": "s1",
+                    "day": "월",
+                    "time": "12:00-15:00",
+                    "status": "AVAILABLE"
+                },
+                {
+                    "slotId": "s2",
+                    "day": "월",
+                    "time": "18:00-21:00",
+                    "status": "REGULAR"
+                }
+            ],
+            "statusOptions": [
+                "AVAILABLE",
+                "REGULAR",
+                "CLOSED"
+            ]
+        },
+        "pricingEditor": {
+            "basePrice": 120000,
+            "rules": [
+                {
+                    "ruleId": "r1",
+                    "maxPeople": 4,
+                    "discountRate": 20
+                },
+                {
+                    "ruleId": "r2",
+                    "maxPeople": 6,
+                    "discountRate": 10
+                }
+            ]
+        },
+        "reservationsMock": [
+            {
+                "id": "rm1",
+                "date": "2026-04-21",
+                "time": "12:00~15:00",
+                "booker": "김민준",
+                "headcount": 6,
+                "price": 108000
+            },
+            {
+                "id": "rm2",
+                "date": "2026-04-22",
+                "time": "18:00~21:00",
+                "booker": "이서현",
+                "headcount": 3,
+                "price": 96000
+            },
+            {
+                "id": "rm3",
+                "date": "2026-04-24",
+                "time": "12:00~15:00",
+                "booker": "박지훈",
+                "headcount": 10,
+                "price": 120000
+            }
+        ]
+    },
+    "actions": {
+        "events": [
+            {
+                "name": "OWNER_UPDATE_SLOT_STATUS",
+                "log": true
+            },
+            {
+                "name": "OWNER_UPDATE_PRICING_RULE",
+                "log": true
+            },
+            {
+                "name": "OWNER_SAVE_LOCAL",
+                "log": true
+            }
+        ]
+    }
+}

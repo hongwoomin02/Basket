@@ -1,0 +1,74 @@
+{
+    "__mock": {
+        "mode": "success"
+    },
+    "page": {
+        "title": "픽업게임"
+    },
+    "view": {
+        "filters": {
+            "status": {
+                "label": "모집 상태",
+                "options": [
+                    "전체",
+                    "모집중",
+                    "마감",
+                    "완료"
+                ]
+            },
+            "day": {
+                "label": "요일",
+                "options": [
+                    "전체",
+                    "월",
+                    "화",
+                    "수",
+                    "목",
+                    "금",
+                    "토",
+                    "일"
+                ]
+            }
+        },
+        "list": [
+            {
+                "gameId": "p10",
+                "title": "[부산] 수요일 픽업게임",
+                "gymName": "에이치 스포츠 센터 반여점",
+                "time": "22:00~00:30",
+                "badge": "모집중",
+                "people": {
+                    "current": 1,
+                    "max": 18
+                },
+                "pricePerPerson": 8000,
+                "to": "/pickup/p10"
+            },
+            {
+                "gameId": "p11",
+                "title": "[부산] 금요일 야간",
+                "gymName": "○○ 체육관",
+                "time": "21:00~23:00",
+                "badge": "마감",
+                "people": {
+                    "current": 18,
+                    "max": 18
+                },
+                "pricePerPerson": 7000,
+                "to": "/pickup/p11"
+            }
+        ]
+    },
+    "actions": {
+        "events": [
+            {
+                "name": "APPLY_FILTER",
+                "log": true
+            },
+            {
+                "name": "OPEN_PICKUP_DETAIL",
+                "log": true
+            }
+        ]
+    }
+}

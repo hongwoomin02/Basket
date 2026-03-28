@@ -1,0 +1,86 @@
+{
+    "__mock": {
+        "mode": "success"
+    },
+    "page": {
+        "title": "운영자 콘솔"
+    },
+    "view": {
+        "sections": [
+            {
+                "id": "SEC_CREATE",
+                "label": "픽업게임 생성"
+            },
+            {
+                "id": "SEC_MANAGE",
+                "label": "내 게임 관리(목업)"
+            }
+        ],
+        "createForm": {
+            "fields": {
+                "title": {
+                    "label": "게임 제목",
+                    "required": true
+                },
+                "gymSelect": {
+                    "label": "체육관 선택",
+                    "required": true,
+                    "options": [
+                        {
+                            "gymId": "g1",
+                            "name": "에이치 스포츠 센터 반여점"
+                        }
+                    ]
+                },
+                "date": {
+                    "label": "날짜",
+                    "required": true
+                },
+                "startTime": {
+                    "label": "시작",
+                    "required": true
+                },
+                "endTime": {
+                    "label": "종료",
+                    "required": true
+                },
+                "maxPeople": {
+                    "label": "최대 인원",
+                    "required": true,
+                    "default": 18
+                },
+                "pricePerPerson": {
+                    "label": "1인 참가비",
+                    "required": true,
+                    "default": 8000
+                }
+            },
+            "cta": {
+                "primary": {
+                    "label": "게임 생성(로컬)",
+                    "enabledWhen": "formValid"
+                }
+            }
+        },
+        "myGamesMock": [
+            {
+                "gameId": "p10",
+                "title": "[부산] 수요일 픽업게임",
+                "people": "1/18",
+                "status": "모집중"
+            }
+        ]
+    },
+    "actions": {
+        "events": [
+            {
+                "name": "ORGANIZER_CREATE_GAME_LOCAL",
+                "log": true
+            },
+            {
+                "name": "ORGANIZER_CLOSE_RECRUITMENT",
+                "log": true
+            }
+        ]
+    }
+}

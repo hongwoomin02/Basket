@@ -1,0 +1,51 @@
+{
+    "__mock": {
+        "mode": "success"
+    },
+    "page": {
+        "title": "픽업게임 상세"
+    },
+    "view": {
+        "game": {
+            "gameId": "p10",
+            "title": "[부산] 수요일 픽업게임",
+            "gym": {
+                "gymId": "g1",
+                "name": "에이치 스포츠 센터 반여점",
+                "address": "부산 (미정)"
+            },
+            "time": {
+                "start": "22:00",
+                "end": "00:30"
+            },
+            "status": "모집중",
+            "people": {
+                "current": 1,
+                "max": 18
+            },
+            "pricePerPerson": 8000,
+            "notes": [
+                "연락처 공유 없이 신청/결제(시뮬)로 확정",
+                "마감 시 신청 불가"
+            ]
+        },
+        "cta": {
+            "primary": {
+                "label": "게스트 신청하기",
+                "enabledWhen": "status=모집중 AND seatsLeft>0"
+            }
+        }
+    },
+    "actions": {
+        "events": [
+            {
+                "name": "GO_CHECKOUT_PICKUP",
+                "log": true
+            },
+            {
+                "name": "ADD_TO_MY_APPLICATIONS",
+                "log": true
+            }
+        ]
+    }
+}
