@@ -1,0 +1,34 @@
+{
+  "__mock": { "mode": "success", "latencyMs": 350 },
+  "page": { "title": "시간표 및 가격 관리" },
+  "view": {
+    "calendar": {
+      "monthLabel": "2026년 4월",
+      "selectedDate": "2026-04-15",
+      "days": [],
+      "slots": [
+        { "id": "s1", "time": "18:00 ~ 19:00", "status": "available", "price": 60000 },
+        { "id": "s2", "time": "19:00 ~ 20:00", "status": "class", "price": null },
+        { "id": "s3", "time": "20:00 ~ 21:00", "status": "regular", "price": null }
+      ]
+    },
+    "repeatRules": [{ "id": "rr1", "label": "매주 화/목 19:00~20:00 수업", "type": "class" }],
+    "exceptionRules": [{ "id": "ex1", "label": "4/20 임시 휴관" }],
+    "pricingForm": {
+      "baseHourlyPrice": 60000,
+      "weekendHourlyPrice": 70000,
+      "discountPersonThreshold": 4,
+      "discountRatePercent": 20,
+      "discountFixedAmount": 0,
+      "sameDayOnly": true
+    }
+  },
+  "actions": {
+    "selectScheduleDate": "OWNER_SCHEDULE_SELECT_DATE",
+    "changeSlotStatus": "OWNER_SCHEDULE_CHANGE_SLOT_STATUS",
+    "addRepeatRule": "OWNER_SCHEDULE_ADD_REPEAT_RULE",
+    "addExceptionRule": "OWNER_SCHEDULE_ADD_EXCEPTION_RULE",
+    "changePricingValue": "OWNER_SCHEDULE_CHANGE_PRICING_VALUE",
+    "saveScheduleSettings": "OWNER_SCHEDULE_SAVE_SETTINGS"
+  }
+}

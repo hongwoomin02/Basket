@@ -1,0 +1,32 @@
+{
+  "__mock": { "mode": "success", "latencyMs": 250 },
+  "page": { "title": "운영자 대시보드" },
+  "view": {
+    "ownerGymProfile": {
+      "name": "센텀 실내농구장",
+      "district": "해운대구",
+      "courtCount": 2,
+      "status": "운영 중"
+    },
+    "kpis": [
+      { "label": "오늘 예약", "value": 5 },
+      { "label": "송금 대기", "value": 2 },
+      { "label": "예약 확정", "value": 8 },
+      { "label": "할인 적용 예약", "value": 3 }
+    ],
+    "recentReservations": [
+      { "id": "resv-101", "name": "김민수", "time": "18:00 ~ 19:00", "status": "송금 완료" },
+      { "id": "resv-102", "name": "부산대 농구팀", "time": "20:00 ~ 22:00", "status": "예약 확정" }
+    ],
+    "quickActions": [
+      { "label": "시간표 관리", "target": "/owner/schedule" },
+      { "label": "결제수단 관리", "target": "/owner/payment-methods" },
+      { "label": "예약 확인", "target": "/owner/reservations" }
+    ]
+  },
+  "actions": {
+    "goSchedule": "OWNER_DASHBOARD_GO_SCHEDULE",
+    "goPaymentMethods": "OWNER_DASHBOARD_GO_PAYMENT_METHODS",
+    "goReservations": "OWNER_DASHBOARD_GO_RESERVATIONS"
+  }
+}

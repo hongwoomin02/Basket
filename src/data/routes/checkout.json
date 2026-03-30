@@ -3,11 +3,11 @@
         "mode": "success"
     },
     "page": {
-        "title": "결제"
+        "title": "직접 송금"
     },
     "view": {
         "summary": {
-            "type": "rent_or_pickup",
+            "type": "rent_transfer",
             "title": "항목명 (query 기반으로 로컬 상태에서 주입)",
             "meta": [
                 "일시/시간",
@@ -26,23 +26,22 @@
                 "desc": "체육관/운영자에게 노출되지 않음(목업 정책)"
             }
         },
-        "paymentMethods": [
-            {
-                "id": "CARD",
-                "label": "카드(시뮬)"
-            },
-            {
-                "id": "EASY",
-                "label": "간편결제(시뮬)"
-            },
-            {
-                "id": "BANK",
-                "label": "계좌이체(시뮬)"
-            }
+        "transferNotice": "아래 수단으로 금액을 송금한 뒤, 송금 화면 스크린샷을 첨부해 주세요. 운영자 확인 후 예약이 확정됩니다.",
+        "directTransfer": {
+            "kakaoPayLink": "https://qr.kakaopay.com/mock-busocourt",
+            "bankName": "국민은행",
+            "accountNumber": "123456-12-1234567",
+            "accountHolder": "에이치스포츠(반여)"
+        },
+        "transferMethods": [
+            { "id": "KAKAO", "label": "카카오페이 송금 링크" },
+            { "id": "BANK", "label": "계좌 이체" }
         ],
+        "screenshotLabel": "송금 스크린샷 첨부",
+        "screenshotHint": "카카오페이·뱅킹 앱에서 송금 완료 화면을 캡처해 업로드하세요.",
         "cta": {
             "primary": {
-                "label": "결제하기",
+                "label": "예약·송금 확인 요청",
                 "enabledWhen": "formValid"
             },
             "secondary": {
@@ -53,18 +52,9 @@
     },
     "actions": {
         "events": [
-            {
-                "name": "SUBMIT_PAYMENT",
-                "log": true
-            },
-            {
-                "name": "PAYMENT_SUCCESS_NAVIGATE",
-                "log": true
-            },
-            {
-                "name": "PAYMENT_FAIL",
-                "log": true
-            }
+            { "name": "SUBMIT_PAYMENT", "log": true },
+            { "name": "PAYMENT_SUCCESS_NAVIGATE", "log": true },
+            { "name": "PAYMENT_FAIL", "log": true }
         ]
     }
 }

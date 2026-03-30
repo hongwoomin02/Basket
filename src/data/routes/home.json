@@ -1,19 +1,97 @@
 {
-  "__mock": { "mode": "success" },
+  "__mock": { "mode": "success", "latencyMs": 320 },
   "page": {
     "title": "홈",
-    "subtitle": "부산 농구 일정 찾기"
+    "subtitle": "부산 농구 일정 찾기",
+    "exploreTitle": "부산 농구 공간 찾기",
+    "exploreSubtitle": "실내 체육관과 야외 농구장을 한 번에 탐색하세요"
   },
   "view": {
     "hero": {
       "headline": "오늘 농구, 여기서 확정까지",
       "desc": "문자/계좌이체 대신 신청→결제(시뮬)→확정"
     },
+    "searchBar": {
+      "placeholder": "부산 농구장, 체육관, 구/군 검색",
+      "value": ""
+    },
+    "quickFilters": [
+      { "key": "district", "label": "구/군", "selected": "전체", "options": ["전체", "해운대구", "수영구", "부산진구", "동래구", "연제구"] },
+      { "key": "placeType", "label": "장소 유형", "selected": "전체", "options": ["전체", "실내 체육관", "야외 농구장"] },
+      { "key": "reservable", "label": "예약 가능", "selected": "전체", "options": ["전체", "예약 가능만"] },
+      { "key": "discountable", "label": "할인 가능", "selected": "전체", "options": ["전체", "할인 가능만"] }
+    ],
+    "sections": {
+      "featured": [
+        {
+          "id": "banner-1",
+          "title": "오늘 바로 빌릴 수 있는 체육관",
+          "description": "할인 적용 가능 시간대 포함"
+        }
+      ]
+    },
+    "places": [
+      {
+        "id": "gym-101",
+        "routeType": "gym",
+        "name": "센텀 실내농구장",
+        "district": "해운대구",
+        "placeType": "실내 체육관",
+        "reservable": true,
+        "discountable": true,
+        "shortDescription": "코트 2면, 주차 가능, 샤워실 보유",
+        "rating": 4.7,
+        "badges": ["예약 가능", "할인 가능"],
+        "to": "/gyms/g1"
+      },
+      {
+        "id": "gym-102",
+        "routeType": "gym",
+        "name": "에이치 스포츠 반여점",
+        "district": "해운대구",
+        "placeType": "실내 체육관",
+        "reservable": true,
+        "discountable": false,
+        "shortDescription": "팀 연습·동호회 대관",
+        "rating": 4.5,
+        "badges": ["예약 가능"],
+        "to": "/gyms/g1"
+      },
+      {
+        "id": "outdoor-201",
+        "routeType": "outdoor",
+        "name": "광안리 해변 농구코트",
+        "district": "수영구",
+        "placeType": "야외 농구장",
+        "reservable": false,
+        "discountable": false,
+        "shortDescription": "바다 근처, 조명 있음, 저녁 이용 많음",
+        "rating": 4.3,
+        "badges": ["야외", "리뷰 128개"],
+        "to": "/place/outdoor/out1"
+      },
+      {
+        "id": "outdoor-202",
+        "routeType": "outdoor",
+        "name": "동래 체육공원 코트",
+        "district": "동래구",
+        "placeType": "야외 농구장",
+        "reservable": false,
+        "discountable": false,
+        "shortDescription": "넓은 코트, 주말 혼잡",
+        "rating": 4.4,
+        "badges": ["야외"],
+        "to": "/place/outdoor/out2"
+      }
+    ],
     "inquiryGyms": [
       {
         "gymId": "g1",
         "name": "에이치 스포츠 센터 반여점",
         "address": "부산 해운대구 반여동",
+        "district": "해운대구",
+        "placeType": "실내 체육관",
+        "discountable": false,
         "available": true,
         "distanceKm": 2.3,
         "to": "/gyms/g1",
@@ -23,6 +101,9 @@
         "gymId": "g2",
         "name": "○○ 체육관",
         "address": "부산 수영구 광안동",
+        "district": "수영구",
+        "placeType": "실내 체육관",
+        "discountable": true,
         "available": false,
         "distanceKm": 4.1,
         "to": "/gyms/g2",
@@ -32,6 +113,9 @@
         "gymId": "g3",
         "name": "동래 실내 농구장",
         "address": "부산 동래구 명장동",
+        "district": "동래구",
+        "placeType": "실내 체육관",
+        "discountable": true,
         "available": true,
         "distanceKm": 5.8,
         "to": "/gyms/g1",
@@ -41,10 +125,20 @@
     "nearbyRadiusKm": 10,
     "mapSummary": {
       "title": "부산 대관 지도",
+      "centerLabel": "부산광역시",
+      "markerCount": 24,
+      "legend": [
+        { "type": "gym", "label": "실내 체육관" },
+        { "type": "outdoor", "label": "야외 농구장" }
+      ],
       "pins": [
-        { "gymId": "g1", "name": "에이치 스포츠 반여", "lat": 35.17, "lng": 129.10, "available": true },
-        { "gymId": "g2", "name": "○○ 체육관", "lat": 35.16, "lng": 129.12, "available": false },
-        { "gymId": "g3", "name": "동래 실내 농구장", "lat": 35.20, "lng": 129.08, "available": true }
+        { "gymId": "g1", "name": "에이치 스포츠 반여", "lat": 35.17, "lng": 129.1, "available": true, "pinType": "gym" },
+        { "gymId": "g2", "name": "○○ 체육관", "lat": 35.16, "lng": 129.12, "available": false, "pinType": "gym" },
+        { "gymId": "g3", "name": "동래 실내 농구장", "lat": 35.2, "lng": 129.08, "available": true, "pinType": "gym" }
+      ],
+      "outdoorPins": [
+        { "placeId": "out1", "name": "광안리 코트", "lat": 35.15, "lng": 129.12, "district": "수영구" },
+        { "placeId": "out2", "name": "동래 공원", "lat": 35.19, "lng": 129.09, "district": "동래구" }
       ]
     },
     "nearbyLabel": "내 주변",
@@ -77,20 +171,17 @@
         "rank": 3,
         "rating": 4.3,
         "address": "부산 연제구",
-        "reviews": [
-          { "text": "실내 대신 날씨 좋을 때 가기 좋아요.", "rating": 4 }
-        ]
+        "reviews": [{ "text": "실내 대신 날씨 좋을 때 가기 좋아요.", "rating": 4 }]
       }
     ],
     "quickActions": [
       { "id": "QA_BUSAN", "label": "부산에서 찾기", "to": "/busan" },
-      { "id": "QA_GYMS", "label": "체육관 보기", "to": "/gyms" },
-      { "id": "QA_PICKUP", "label": "픽업게임 보기", "to": "/pickup" }
+      { "id": "QA_GYMS", "label": "체육관 보기", "to": "/gyms" }
     ],
     "highlights": [
       { "id": "H1", "title": "시간표 기반 예약", "desc": "예약가능/정기대관/마감 표시" },
       { "id": "H2", "title": "인원 할인", "desc": "소수 인원 연습 할인 정책 반영" },
-      { "id": "H3", "title": "연락처 비공개", "desc": "신청/결제/확정을 앱에서" }
+      { "id": "H3", "title": "직접 송금 확정", "desc": "운영자 계좌·송금 확인 후 확정 (PRD_V2)" }
     ]
   },
   "actions": {

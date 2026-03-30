@@ -1,17 +1,19 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMock } from '../store/MockProvider';
-import { Search, Map, LayoutGrid, User } from 'lucide-react';
+import { Search, Map, ClipboardList, User } from 'lucide-react';
 
 export const BottomNav: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { role } = useMock();
 
+    const reservationTo = role === 'OWNER' ? '/owner/reservations' : '/my/reservations';
+
     const navItems = [
         { id: 'NAV_HOME', to: '/', icon: Search, label: '탐색' },
         { id: 'NAV_GYMS', to: '/gyms', icon: Map, label: '체육관' },
-        { id: 'NAV_PICKUP', to: '/pickup', icon: LayoutGrid, label: '픽업' },
+        { id: 'NAV_RESV', to: reservationTo, icon: ClipboardList, label: '예약' },
         { id: 'NAV_MY', to: '/my', icon: User, label: '마이' },
     ];
 

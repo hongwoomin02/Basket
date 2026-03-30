@@ -3,7 +3,8 @@ import { Header } from '../components/Header';
 import gymDetailData from '../data/routes/gymDetail.json';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMock } from '../store/MockProvider';
-import { MapPin, ShieldCheck, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { MapPin, ShieldCheck, Tag, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 
 // --- Date Helpers ---
 const MONTH_NAMES = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
@@ -36,6 +37,9 @@ export const GymDetail: React.FC = () => {
     const { view } = gymDetailData;
     const navigate = useNavigate();
     const { logEvent } = useMock();
+    const { showToast } = useToast();
+    const [pricingDetailOpen, setPricingDetailOpen] = useState(false);
+    const ownerPay = view.ownerPaymentPreview as { notice?: string; availableMethods?: string[]; detailNote?: string } | undefined;
 
     // --- State ---
     const today = new Date();
@@ -133,9 +137,9 @@ export const GymDetail: React.FC = () => {
                 <span className="badge" style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', marginBottom: '16px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <ShieldCheck size={12} /> 제휴 코트
                 </span>
-                <h2 style={{ fontSize: '26px', fontWeight: 900, marginBottom: '8px' }}>에이치 스포츠 센터 반여점</h2>
+                <h2 style={{ fontSize: '26px', fontWeight: 900, marginBottom: '8px' }}>{view.gym.name}</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--gray-300)', fontWeight: 600 }}>
-                    <MapPin size={15} /> 부산광역시 해운대구 반여동 ...
+                    <MapPin size={15} /> {view.gym.address}
                 </div>
             </div>
 
@@ -237,14 +241,28 @@ export const GymDetail: React.FC = () => {
                                             );
                                         } else if (status.type === 'REGULAR') {
                                             return (
-                                                <div key={dayIdx} className="weekly-cell weekly-cell-regular">
+                                                <div
+                                                    key={dayIdx}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => { showToast('이 시간은 예약할 수 없습니다.'); logEvent('GYM_SLOT_BLOCKED_TAP', { slotId, reason: 'regular' }); }}
+                                                    onKeyDown={(e) => e.key === 'Enter' && showToast('이 시간은 예약할 수 없습니다.')}
+                                                    className="weekly-cell weekly-cell-regular"
+                                                >
                                                     <span className="label" style={{ opacity: 0.7, fontSize: '9px' }}>{status.label}</span>
                                                     <div><span className="tag">{status.tag}</span></div>
                                                 </div>
                                             );
                                         } else {
                                             return (
-                                                <div key={dayIdx} className="weekly-cell weekly-cell-lesson">
+                                                <div
+                                                    key={dayIdx}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => { showToast('이 시간은 예약할 수 없습니다.'); logEvent('GYM_SLOT_BLOCKED_TAP', { slotId, reason: 'lesson' }); }}
+                                                    onKeyDown={(e) => e.key === 'Enter' && showToast('이 시간은 예약할 수 없습니다.')}
+                                                    className="weekly-cell weekly-cell-lesson"
+                                                >
                                                     <span className="label">{status.label}</span>
                                                     <div><span className="tag">{status.tag}</span></div>
                                                 </div>
@@ -260,8 +278,17 @@ export const GymDetail: React.FC = () => {
 
             {/* Discount Policy */}
             <div style={{ padding: '0 16px 24px' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Tag size={16} color="var(--brand-trust)" /> 인원별 대관료 파격 할인
+                <h3 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Tag size={16} color="var(--brand-trust)" /> 인원별 대관료 파격 할인
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => { setPricingDetailOpen(true); logEvent('GYM_PRICING_DETAIL_OPEN', {}); }}
+                        style={{ fontSize: '12px', fontWeight: 800, color: 'var(--brand-trust)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                        <Info size={14} /> 가격/할인 상세 보기
+                    </button>
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {view.pricingPolicy.headcountDiscount.map((rule, idx) => (
@@ -274,6 +301,39 @@ export const GymDetail: React.FC = () => {
                     ))}
                 </div>
             </div>
+
+            {ownerPay && (
+                <div style={{ padding: '0 16px 20px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '10px', color: 'var(--gray-900)' }}>결제 안내 (직접 송금)</h3>
+                    <div className="card" style={{ padding: '16px', background: 'var(--brand-light)', borderColor: '#BFDBFE' }}>
+                        <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', marginBottom: '8px', lineHeight: 1.5 }}>{ownerPay.notice}</p>
+                        {ownerPay.availableMethods && (
+                            <p style={{ fontSize: '13px', color: 'var(--gray-600)', fontWeight: 600 }}>{ownerPay.availableMethods.join(' · ')}</p>
+                        )}
+                        {ownerPay.detailNote && <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '8px' }}>{ownerPay.detailNote}</p>}
+                    </div>
+                </div>
+            )}
+
+            {pricingDetailOpen && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 220, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setPricingDetailOpen(false)}>
+                    <div style={{ width: '100%', maxWidth: 'var(--max-w)', background: 'var(--bg-surface)', borderTopLeftRadius: '20px', borderTopRightRadius: '20px', padding: '24px 20px', maxHeight: '75vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                        <h3 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '8px' }}>가격·할인 정책</h3>
+                        <p style={{ fontSize: '14px', color: 'var(--gray-600)', marginBottom: '16px' }}>{view.pricingPolicy.base}</p>
+                        <p style={{ fontSize: '13px', color: 'var(--gray-500)', marginBottom: '16px', lineHeight: 1.5 }}>{view.pricingPolicy.assumption}</p>
+                        <ul style={{ paddingLeft: '18px', fontSize: '14px', color: 'var(--gray-800)', lineHeight: 1.6 }}>
+                            {view.pricingPolicy.headcountDiscount.map((rule, idx) => (
+                                <li key={idx}>
+                                    {rule.label} ({rule.maxPeople}명 이하) — 결제 시 {rule.rate} 자동 반영
+                                </li>
+                            ))}
+                        </ul>
+                        <button type="button" className="btn btn-secondary" style={{ width: '100%', marginTop: '20px' }} onClick={() => setPricingDetailOpen(false)}>
+                            닫기
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Floating summary + checkout bar */}
             <div className="floating-bar" style={{ flexDirection: 'column', gap: '12px', borderTopLeftRadius: '20px', borderTopRightRadius: '20px' }}>

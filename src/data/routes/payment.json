@@ -1,0 +1,37 @@
+{
+  "__mock": { "mode": "success", "latencyMs": 300 },
+  "page": { "title": "직접 송금 결제" },
+  "view": {
+    "reservationSummary": {
+      "reservationId": "resv-101",
+      "gymName": "센텀 실내농구장",
+      "date": "2026-04-15",
+      "time": "18:00 ~ 19:00",
+      "peopleCount": 4,
+      "finalPrice": 48000,
+      "status": "송금 대기"
+    },
+    "paymentMethods": {
+      "kakaoPayLink": "https://example.com/mock-kakaopay-link",
+      "bankName": "국민은행",
+      "accountNumber": "123-456-789012",
+      "accountHolder": "홍길동"
+    },
+    "paymentForm": {
+      "payerName": "",
+      "proofImageEnabled": true,
+      "proofImageName": ""
+    },
+    "guideMessages": [
+      "플랫폼은 결제를 중개하지 않습니다.",
+      "운영자에게 직접 송금한 뒤 송금 완료를 눌러주세요."
+    ]
+  },
+  "actions": {
+    "copyAccountNumber": "PAYMENT_COPY_ACCOUNT_NUMBER",
+    "openKakaoPayLink": "PAYMENT_OPEN_KAKAOPAY_LINK",
+    "changePayerName": "PAYMENT_CHANGE_PAYER_NAME",
+    "attachProofImage": "PAYMENT_ATTACH_PROOF_IMAGE",
+    "submitTransferDone": "PAYMENT_SUBMIT_TRANSFER_DONE"
+  }
+}

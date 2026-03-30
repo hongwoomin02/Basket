@@ -89,6 +89,11 @@
                 "label": "대관 예약하기",
                 "enabledWhen": "slotSelected"
             }
+        },
+        "ownerPaymentPreview": {
+            "notice": "예약 신청 후 운영자에게 직접 송금하는 구조입니다. 플랫폼은 결제를 중개하지 않습니다.",
+            "availableMethods": ["카카오페이 송금 링크", "은행 계좌 송금"],
+            "detailNote": "결제(시뮬) 단계에서 계좌·입금자명·송금 완료 처리까지 안내합니다."
         }
     },
     "actions": {

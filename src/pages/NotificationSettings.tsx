@@ -51,14 +51,14 @@ export const NotificationSettings: React.FC = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border-light)' }}>
                         <div>
                             <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--gray-900)' }}>예약 확정 알림</div>
-                            <div style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '2px' }}>대관·픽업 예약 확정 시</div>
+                            <div style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '2px' }}>대관 예약 확정 시</div>
                         </div>
                         <Toggle checked={bookingConfirm} onChange={setBookingConfirm} />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border-light)' }}>
                         <div>
                             <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--gray-900)' }}>모집 마감 알림</div>
-                            <div style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '2px' }}>참여 중인 픽업 마감 임박 시</div>
+                            <div style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '2px' }}>모집·일정 마감 임박 시</div>
                         </div>
                         <Toggle checked={recruitDeadline} onChange={setRecruitDeadline} />
                     </div>

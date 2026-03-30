@@ -1,0 +1,34 @@
+{
+  "__mock": { "mode": "success", "latencyMs": 300 },
+  "page": { "title": "예약 신청" },
+  "view": {
+    "bookingTarget": {
+      "gymId": "gym-101",
+      "gymName": "센텀 실내농구장",
+      "date": "2026-04-15",
+      "time": "18:00 ~ 19:00"
+    },
+    "form": {
+      "teamName": "",
+      "bookerName": "",
+      "phone": "",
+      "peopleCount": 4,
+      "memo": ""
+    },
+    "priceCalculator": {
+      "basePrice": 60000,
+      "availableRules": [
+        { "label": "4명 이하 20% 할인", "type": "rate", "value": 20 },
+        { "label": "당일 예약 적용", "type": "condition", "value": true }
+      ],
+      "appliedDiscountLabel": "4명 이하 20% 할인",
+      "discountAmount": 12000,
+      "finalPrice": 48000
+    }
+  },
+  "actions": {
+    "changePeopleCount": "BOOKING_CHANGE_PEOPLE_COUNT",
+    "changeFormValue": "BOOKING_CHANGE_FORM_VALUE",
+    "submitBookingRequest": "BOOKING_SUBMIT_REQUEST"
+  }
+}

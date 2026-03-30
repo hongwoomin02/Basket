@@ -1,0 +1,20 @@
+{
+  "__mock": { "mode": "success", "latencyMs": 250 },
+  "page": { "title": "결제 정보 (송금)" },
+  "view": {
+    "form": {
+      "kakaoPayLink": "https://qr.kakaopay.com/mock-busocourt",
+      "bankName": "국민은행",
+      "accountNumber": "123456-12-1234567",
+      "accountHolder": "에이치스포츠(반여)"
+    },
+    "preview": {
+      "title": "사용자 예약 화면에서 보이는 항목",
+      "labels": ["카카오페이 송금 링크로 이동", "또는 표시된 은행·계좌로 이체", "송금 스크린샷 첨부"]
+    }
+  },
+  "actions": {
+    "changePaymentMethodValue": "OWNER_PAYMENT_METHODS_CHANGE_VALUE",
+    "savePaymentMethods": "OWNER_PAYMENT_METHODS_SAVE"
+  }
+}

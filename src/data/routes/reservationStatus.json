@@ -1,0 +1,31 @@
+{
+  "__mock": { "mode": "success", "latencyMs": 250 },
+  "page": { "title": "예약 상태" },
+  "view": {
+    "reservation": {
+      "reservationId": "resv-101",
+      "gymName": "센텀 실내농구장",
+      "date": "2026-04-15",
+      "time": "18:00 ~ 19:00",
+      "peopleCount": 4,
+      "price": 48000,
+      "payerName": "김민수",
+      "currentStatus": "송금 완료"
+    },
+    "statusTimeline": [
+      { "key": "requested", "label": "신청됨", "done": true },
+      { "key": "waiting", "label": "송금 대기", "done": true },
+      { "key": "transferred", "label": "송금 완료", "done": true },
+      { "key": "checked", "label": "확인 완료", "done": false },
+      { "key": "confirmed", "label": "예약 확정", "done": false }
+    ],
+    "nextActions": [
+      { "label": "체육관 상세 다시 보기", "target": "/place/gym/gym-101" },
+      { "label": "홈으로 가기", "target": "/" }
+    ]
+  },
+  "actions": {
+    "goGymDetail": "RESERVATION_GO_GYM_DETAIL",
+    "goHome": "RESERVATION_GO_HOME"
+  }
+}

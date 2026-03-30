@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useMock } from '../store/MockProvider';
 import { Header } from '../components/Header';
 import {
-    User, CreditCard, Bell, Shield, LogOut, Trash2,
-    ChevronRight, Building2, BarChart3, Calendar
+    User, Bell, Shield, LogOut, Trash2,
+    ChevronRight, Building2, BarChart3, Calendar, Wallet
 } from 'lucide-react';
 
 export const MyPage: React.FC = () => {
@@ -85,6 +85,12 @@ export const MyPage: React.FC = () => {
                             desc="대관 가능 시간대 등록 및 수정"
                             onClick={() => navigate('/owner/schedule')}
                         />
+                        <MenuItem
+                            icon={<Wallet size={20} />}
+                            label="결제 정보 (송금)"
+                            desc="카카오페이 송금 링크 · 계좌번호"
+                            onClick={() => navigate('/owner/payment-methods')}
+                        />
                     </div>
                 </>
             )}
@@ -155,7 +161,7 @@ export const MyPage: React.FC = () => {
                                 <div style={{ color: 'var(--brand-trust)' }}><User size={20} /></div>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--gray-900)' }}>GUEST로 보기</div>
-                                    <div style={{ fontSize: '12px', color: 'var(--gray-400)', marginTop: '2px' }}>개인 회원처럼 대관·픽업 이용</div>
+                                    <div style={{ fontSize: '12px', color: 'var(--gray-400)', marginTop: '2px' }}>개인 회원처럼 대관 이용</div>
                                 </div>
                                 <ChevronRight size={16} color="var(--gray-300)" />
                             </button>
@@ -189,12 +195,6 @@ export const MyPage: React.FC = () => {
                     label="프로필 수정"
                     desc="이름, 닉네임, 연락처, 키, 포지션, 사진"
                     onClick={() => navigate('/my/profile')}
-                />
-                <MenuItem
-                    icon={<CreditCard size={20} />}
-                    label="카드 등록 / 결제 정보"
-                    desc="결제 수단 등록 및 관리"
-                    onClick={() => navigate('/my/cards')}
                 />
                 <MenuItem
                     icon={<Bell size={20} />}

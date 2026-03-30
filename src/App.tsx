@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MockProvider } from './store/MockProvider';
+import { ToastProvider } from './context/ToastContext';
 import { AppLayout } from './components/AppLayout';
 
 // Public Pages
@@ -8,9 +9,6 @@ import { Home } from './pages/Home';
 import { Busan } from './pages/Busan';
 import { Gyms } from './pages/Gyms';
 import { GymDetail } from './pages/GymDetail';
-import { Pickup } from './pages/Pickup';
-import { PickupDetail } from './pages/PickupDetail';
-
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 
@@ -24,14 +22,17 @@ import { Organizer } from './pages/Organizer';
 import { Ops } from './pages/Ops';
 import { MyPage } from './pages/MyPage';
 import { ProfileEdit } from './pages/ProfileEdit';
-import { CardPayment } from './pages/CardPayment';
+import { OwnerPaymentMethods } from './pages/OwnerPaymentMethods';
 import { NotificationSettings } from './pages/NotificationSettings';
 import { Terms } from './pages/Terms';
 import { MyReservations } from './pages/MyReservations';
+import { OwnerReservations } from './pages/OwnerReservations';
+import { OutdoorSpotPage } from './pages/OutdoorSpotPage';
 
 function App() {
     return (
         <MockProvider>
+            <ToastProvider>
             <BrowserRouter>
                 <Routes>
                     <Route element={<AppLayout />}>
@@ -42,19 +43,18 @@ function App() {
                         <Route path="/busan" element={<Busan />} />
                         <Route path="/gyms" element={<Gyms />} />
                         <Route path="/gyms/:gymId" element={<GymDetail />} />
-                        <Route path="/pickup" element={<Pickup />} />
-                        <Route path="/pickup/:gameId" element={<PickupDetail />} />
-
+                        <Route path="/place/outdoor/:id" element={<OutdoorSpotPage />} />
                         <Route path="/checkout" element={<Checkout />} />
                         <Route path="/success" element={<Success />} />
 
                         <Route path="/owner" element={<Owner />} />
                         <Route path="/owner/schedule" element={<Owner />} />
+                        <Route path="/owner/payment-methods" element={<OwnerPaymentMethods />} />
+                        <Route path="/owner/reservations" element={<OwnerReservations />} />
                         <Route path="/organizer" element={<Organizer />} />
                         <Route path="/ops" element={<Ops />} />
                         <Route path="/my" element={<MyPage />} />
                         <Route path="/my/profile" element={<ProfileEdit />} />
-                        <Route path="/my/cards" element={<CardPayment />} />
                         <Route path="/my/notifications" element={<NotificationSettings />} />
                         <Route path="/my/terms" element={<Terms />} />
                         <Route path="/my/reservations" element={<MyReservations />} />
@@ -63,6 +63,7 @@ function App() {
                     </Route>
                 </Routes>
             </BrowserRouter>
+            </ToastProvider>
         </MockProvider>
     );
 }

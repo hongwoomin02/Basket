@@ -6,16 +6,6 @@
         "title": "부산"
     },
     "view": {
-        "tabs": [
-            {
-                "id": "TAB_RENT",
-                "label": "대관"
-            },
-            {
-                "id": "TAB_PICKUP",
-                "label": "픽업"
-            }
-        ],
         "rentPreview": {
             "count": 12,
             "items": [
@@ -33,26 +23,6 @@
                 }
             ],
             "to": "/gyms"
-        },
-        "pickupPreview": {
-            "count": 7,
-            "items": [
-                {
-                    "gameId": "p10",
-                    "title": "[부산] 수요일 픽업게임",
-                    "badge": "모집중",
-                    "people": "1/18",
-                    "time": "22:00~00:30"
-                },
-                {
-                    "gameId": "p11",
-                    "title": "[부산] 금요일 야간",
-                    "badge": "마감",
-                    "people": "18/18",
-                    "time": "21:00~23:00"
-                }
-            ],
-            "to": "/pickup"
         }
     },
     "actions": {

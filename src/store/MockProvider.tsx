@@ -14,6 +14,13 @@ export interface Application {
     endTime?: string;
     /** 취소 수수료 퍼센트 (체육관 사장 설정, 목업 기본 10) */
     cancelFeePercent?: number;
+
+    /** 송금 방식 (목업) */
+    transferMethod?: 'KAKAO' | 'BANK';
+    /** 송금 스크린샷 파일명 (목업: 실제 파일은 저장하지 않음) */
+    proofFileName?: string | null;
+    /** 사장님 확인/확정 상태 (목업) */
+    transferStatus?: 'PENDING' | 'CONFIRMED';
 }
 
 interface MockState {
@@ -24,6 +31,7 @@ interface MockState {
     applications: Application[];
     addApplication: (app: Application) => void;
     removeApplication: (id: string) => void;
+    confirmApplication: (id: string) => void;
     logEvent: (eventName: string, meta?: any) => void;
     eventLogs: Array<{ ts: string; event: string; meta?: any }>;
     clearLogs: () => void;
@@ -65,11 +73,24 @@ export const MockProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [role, mockMode, applications, eventLogs]);
 
     const addApplication = (app: Application) => {
-        setApplications((prev) => [...prev, { ...app, cancelFeePercent: app.cancelFeePercent ?? 10 }]);
+        setApplications((prev) => [
+            ...prev,
+            {
+                ...app,
+                cancelFeePercent: app.cancelFeePercent ?? 10,
+                transferStatus: app.transferStatus ?? 'PENDING',
+            },
+        ]);
     };
 
     const removeApplication = (id: string) => {
         setApplications((prev) => prev.filter((a) => a.id !== id));
+    };
+
+    const confirmApplication = (id: string) => {
+        setApplications((prev) =>
+            prev.map((a) => (a.id === id ? { ...a, transferStatus: 'CONFIRMED' } : a))
+        );
     };
 
     const logEvent = (eventName: string, meta?: any) => {
@@ -96,6 +117,7 @@ export const MockProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 applications,
                 addApplication,
                 removeApplication,
+                confirmApplication,
                 logEvent,
                 eventLogs,
                 clearLogs,

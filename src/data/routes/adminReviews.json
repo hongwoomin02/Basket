@@ -1,0 +1,38 @@
+{
+  "__mock": { "mode": "success", "latencyMs": 250 },
+  "page": { "title": "리뷰 및 사진 검수" },
+  "view": {
+    "filters": {
+      "status": "전체",
+      "placeType": "야외 농구장"
+    },
+    "reviewRows": [
+      {
+        "id": "rv-1",
+        "placeName": "광안리 해변 농구코트",
+        "nickname": "농구좋아",
+        "rating": 5,
+        "tags": ["조명 좋음", "청결도 좋음"],
+        "content": "저녁에 공 차기 좋고 조명이 밝음",
+        "hasPhoto": true,
+        "status": "노출 중"
+      },
+      {
+        "id": "rv-2",
+        "placeName": "광안리 해변 농구코트",
+        "nickname": "슛감좋음",
+        "rating": 2,
+        "tags": ["혼잡도 높음"],
+        "content": "주말엔 사람이 많음",
+        "hasPhoto": false,
+        "status": "숨김"
+      }
+    ]
+  },
+  "actions": {
+    "changeAdminReviewFilter": "ADMIN_REVIEWS_CHANGE_FILTER",
+    "previewReviewPhoto": "ADMIN_REVIEWS_PREVIEW_PHOTO",
+    "hideReview": "ADMIN_REVIEWS_HIDE",
+    "restoreReview": "ADMIN_REVIEWS_RESTORE"
+  }
+}

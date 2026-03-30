@@ -26,8 +26,8 @@ export const Success: React.FC = () => {
 
             <div style={{ textAlign: 'center', marginTop: '40px', marginBottom: '32px' }}>
                 <CheckCircle size={64} color="var(--brand-primary)" style={{ margin: '0 auto 16px' }} />
-                <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--gray-900)', marginBottom: '8px' }}>결제가 확정되었습니다</h1>
-                <p style={{ fontSize: '14px', color: 'var(--gray-500)', fontWeight: 500 }}>예약 내역은 마이페이지에서 확인 가능합니다.</p>
+                <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--gray-900)', marginBottom: '8px' }}>예약·송금 확인 요청이 접수되었습니다</h1>
+                <p style={{ fontSize: '14px', color: 'var(--gray-500)', fontWeight: 500 }}>운영자가 송금 내역을 확인하면 예약이 확정됩니다. 마이페이지에서 상태를 확인하세요.</p>
             </div>
 
             <div className="card" style={{ padding: '24px', marginBottom: '16px' }}>
@@ -36,7 +36,7 @@ export const Success: React.FC = () => {
 
                 <div className="divider" style={{ margin: '16px 0' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '14px', color: 'var(--gray-600)', fontWeight: 600 }}>최종 결제 금액</span>
+                    <span style={{ fontSize: '14px', color: 'var(--gray-600)', fontWeight: 600 }}>송금 금액</span>
                     <span style={{ fontSize: '20px', fontWeight: 800, color: 'var(--brand-primary)' }}>{parseInt(price, 10).toLocaleString()} 원</span>
                 </div>
             </div>
@@ -53,7 +53,7 @@ export const Success: React.FC = () => {
                     </div>
                     <div>
                         <h4 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>팀원이 더 필요하신가요?</h4>
-                        <p style={{ fontSize: '13px', color: 'var(--gray-400)', lineHeight: 1.4 }}>방금 대관한 코트에서 함께 뛸 픽업 게스트를 <br />앱에 바로 모집할 수 있습니다.</p>
+                        <p style={{ fontSize: '13px', color: 'var(--gray-400)', lineHeight: 1.4 }}>방금 대관한 코트에서 함께 뛸 팀원을 <br />모집 글로 공유할 수 있습니다.</p>
                     </div>
                 </div>
             )}

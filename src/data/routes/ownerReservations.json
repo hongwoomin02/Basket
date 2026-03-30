@@ -1,0 +1,45 @@
+{
+  "__mock": { "mode": "success", "latencyMs": 300 },
+  "page": { "title": "예약 및 입금 확인" },
+  "view": {
+    "filters": {
+      "status": "전체",
+      "dateRange": "이번 주"
+    },
+    "rows": [
+      {
+        "id": "resv-101",
+        "bookerName": "김민수",
+        "teamName": "부산대 농구동아리",
+        "payerName": "김민수",
+        "date": "2026-04-15",
+        "time": "18:00 ~ 19:00",
+        "peopleCount": 4,
+        "price": 48000,
+        "discountApplied": true,
+        "status": "송금 완료",
+        "hasProof": true
+      },
+      {
+        "id": "resv-102",
+        "bookerName": "이정훈",
+        "teamName": "센텀 직장인 농구팀",
+        "payerName": "",
+        "date": "2026-04-16",
+        "time": "20:00 ~ 22:00",
+        "peopleCount": 8,
+        "price": 120000,
+        "discountApplied": false,
+        "status": "송금 대기",
+        "hasProof": false
+      }
+    ]
+  },
+  "actions": {
+    "changeReservationFilter": "OWNER_RESERVATIONS_CHANGE_FILTER",
+    "openReservationDetail": "OWNER_RESERVATIONS_OPEN_DETAIL",
+    "markChecked": "OWNER_RESERVATIONS_MARK_CHECKED",
+    "markConfirmed": "OWNER_RESERVATIONS_MARK_CONFIRMED",
+    "markCancelled": "OWNER_RESERVATIONS_MARK_CANCELLED"
+  }
+}

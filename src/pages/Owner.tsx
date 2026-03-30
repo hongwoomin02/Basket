@@ -216,6 +216,11 @@ export const Owner: React.FC = () => {
                             <div style={{ fontSize: '22px', fontWeight: 900, color: 'var(--brand-energy)' }}>{utilisationRate}%</div>
                         </div>
                     </div>
+                    <div style={{ padding: '0 16px 16px' }}>
+                        <button type="button" className="btn btn-secondary" style={{ width: '100%' }} onClick={() => navigate('/owner/payment-methods')}>
+                            결제 정보 (카카오페이 링크 · 계좌) 설정
+                        </button>
+                    </div>
 
                     {/* Tab Nav: 대시보드 전용 (시간표는 /owner/schedule) */}
                     <div style={{ display: 'flex', borderBottom: '2px solid var(--border-light)', padding: '0 20px', background: 'var(--bg-surface)' }}>

@@ -1,0 +1,55 @@
+{
+  "__mock": { "mode": "success", "latencyMs": 350 },
+  "page": { "title": "야외 농구장 상세" },
+  "view": {
+    "place": {
+      "id": "outdoor-201",
+      "name": "광안리 해변 농구코트",
+      "address": "부산 수영구 광안해변로 00",
+      "district": "수영구",
+      "feeType": "무료",
+      "floorStatus": "보통",
+      "lightStatus": "좋음",
+      "rimStatus": "보통",
+      "cleanliness": "좋음",
+      "crowdLevel": "저녁 혼잡",
+      "description": "바다 근처 야외 코트. 저녁 시간 이용자 많음."
+    },
+    "gallery": [
+      { "id": "o1", "src": "" },
+      { "id": "o2", "src": "" }
+    ],
+    "ratingSummary": {
+      "averageRating": 4.3,
+      "reviewCount": 128,
+      "tagSummary": [
+        { "tag": "조명 좋음", "count": 82 },
+        { "tag": "바닥 보통", "count": 64 },
+        { "tag": "저녁 혼잡", "count": 91 }
+      ]
+    },
+    "reviews": [
+      {
+        "id": "rv-1",
+        "nickname": "농구좋아",
+        "rating": 5,
+        "tags": ["조명 좋음", "청결도 좋음"],
+        "content": "저녁에 공 차기 좋고 조명이 밝은 편",
+        "photos": [],
+        "visitedAt": "2026-04-10"
+      }
+    ],
+    "reviewForm": {
+      "rating": 0,
+      "availableTags": ["바닥 좋음", "바닥 나쁨", "조명 좋음", "조명 나쁨", "골대 상태 좋음", "청결도 좋음", "혼잡도 높음", "혼잡도 낮음"],
+      "text": "",
+      "photoLimit": 3
+    }
+  },
+  "actions": {
+    "openPhotoViewer": "OUTDOOR_OPEN_PHOTO_VIEWER",
+    "submitReview": "OUTDOOR_SUBMIT_REVIEW",
+    "toggleTag": "OUTDOOR_TOGGLE_TAG",
+    "changeRating": "OUTDOOR_CHANGE_RATING"
+  }
+}
