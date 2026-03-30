@@ -1,0 +1,347 @@
+# 백엔드 개발 전체 계획 — 부산 농구 공간 플랫폼
+
+> [BACKEND_DATA_IA.md](file:///c:/Users/user/Basket/docs/BACKEND_DATA_IA.md) + [ERD.md](file:///c:/Users/user/Basket/docs/ERD.md) 기반  
+> BaaS 없이 **직접 백엔드 개발 + 배포**하는 전체 로드맵
+
+---
+
+## 개요
+
+프론트(React/Vite)와 완전히 분리된 **독립 백엔드 서버**를 구성.  
+DB → API 서버 → 배포의 3단계 파이프라인을 순서대로 진행.
+
+---
+
+## 기술 스택 결정
+
+| 레이어 | 선택 | 이유 |
+|---|---|---|
+| **언어** | **Python 3.12** | FastAPI 생태계, 타입힌트, 빠른 개발 |
+| **웹 프레임워크** | **FastAPI** | 자동 OpenAPI 문서, async, pydantic 검증 |
+| **DB** | **PostgreSQL 16** | ERD 설계 기반, JSON 지원, 성숙한 생태계 |
+| **ORM** | **SQLAlchemy 2.0 (async)** | 타입세이프, alembic 마이그레이션 |
+| **마이그레이션** | **Alembic** | SQLAlchemy 표준 마이그레이션 도구 |
+| **인증** | **JWT (python-jose)** | stateless, 역할 기반(USER/OWNER/ADMIN) |
+| **파일 스토리지** | **S3 호환 (MinIO / AWS S3)** | 이미지 업로드 (갤러리, 리뷰 사진, 송금 증빙) |
+| **컨테이너** | **Docker + Docker Compose** | 로컬 개발 환경 통일, 배포 재현성 |
+| **배포** | **Railway 또는 Render (초기), VPS (확장)** | 간편 배포, PostgreSQL 포함 |
+| **API 문서** | **Swagger UI (FastAPI 자동 생성)** | `/docs` 엔드포인트 |
+
+> ⚠️ **Spring / FastAPI 중 선택**: PRD에서 미정이었으나 MVP 속도 기준 **FastAPI 권장**
+
+---
+
+## Phase 1 — 프로젝트 셋업 & DB 구성
+
+### 1-1. 디렉토리 구조
+
+```
+basket-backend/
+├── app/
+│   ├── main.py              # FastAPI 앱 진입점
+│   ├── config.py            # 환경변수 (pydantic Settings)
+│   ├── database.py          # DB 엔진/세션
+│   ├── models/              # SQLAlchemy ORM 모델 (테이블별 1파일)
+│   │   ├── user.py
+│   │   ├── place.py
+│   │   ├── slot.py
+│   │   ├── reservation.py
+│   │   ├── review.py
+│   │   └── ...
+│   ├── schemas/             # Pydantic 요청/응답 스키마
+│   ├── routers/             # 라우터 (도메인별 분리)
+│   │   ├── auth.py
+│   │   ├── places.py
+│   │   ├── gyms.py
+│   │   ├── outdoors.py
+│   │   ├── reservations.py
+│   │   ├── owner.py
+│   │   ├── admin.py
+│   │   └── ...
+│   ├── services/            # 비즈니스 로직 레이어
+│   ├── dependencies/        # FastAPI Depends (인증, DB 세션)
+│   └── utils/               # 가격 계산, 슬롯 생성 등 유틸
+├── alembic/                 # 마이그레이션 파일
+│   ├── versions/
+│   └── env.py
+├── alembic.ini
+├── Dockerfile
+├── docker-compose.yml
+├── pyproject.toml           # uv / poetry
+├── .env.example
+└── README.md
+```
+
+### 1-2. DB 셋업 (Alembic 마이그레이션)
+
+**ERD.md 기반 18개 테이블을 Alembic 마이그레이션으로 생성**
+
+```
+마이그레이션 순서 (의존성 기준):
+001_create_enums
+002_create_users
+003_create_places
+004_create_gym_outdoor_profiles
+005_create_place_assets
+006_create_owner_gyms
+007_create_schedule_tables      ← pricing_policies, repeat_rules, exception_rules
+008_create_slots_and_overrides
+009_create_payment_methods
+010_create_reservations
+011_create_payment_transfers
+012_create_reservation_timelines
+013_create_reviews              ← outdoor_reviews, review_photos, moderation_audits
+014_create_indexes
+```
+
+### 1-3. 로컬 Docker Compose 구성
+
+```yaml
+# docker-compose.yml (개발용)
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: basket
+      POSTGRES_USER: basket_user
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      - db
+    volumes:
+      - ./app:/app/app
+```
+
+---
+
+## Phase 2 — 인증 & 공통 레이어
+
+### 2-1. 인증 API
+
+| 엔드포인트 | 설명 |
+|---|---|
+| `POST /auth/signup` | 회원가입 (이메일+비밀번호) |
+| `POST /auth/login` | 로그인 → JWT access/refresh token 반환 |
+| `POST /auth/refresh` | access token 갱신 |
+| `GET /auth/me` | 현재 사용자 정보 |
+
+**JWT 페이로드**:
+
+```json
+{ "sub": "user_id", "role": "USER|OWNER|ADMIN", "exp": 1234567890 }
+```
+
+### 2-2. 역할 기반 Depends
+
+```python
+# dependencies/auth.py
+get_current_user()      # 로그인 필수
+require_role("OWNER")   # 운영자만 접근
+require_role("ADMIN")   # 관리자만 접근
+optional_user()         # 비로그인 허용 (리뷰 등)
+```
+
+### 2-3. 공통 응답 스키마
+
+```json
+// 성공
+{ "data": <payload>, "meta": { "requestId": "..." } }
+
+// 에러
+{ "error": { "code": "SLOT_NOT_RESERVABLE", "message": "..." } }
+```
+
+에러 코드: `NOT_FOUND`, `FORBIDDEN`, `SLOT_NOT_RESERVABLE`, `DUPLICATE_RESERVATION`, `INVALID_RESERVATION_STATE`, `PAYMENT_METHOD_NOT_SET`
+
+---
+
+## Phase 3 — API 개발 (스프린트별)
+
+### Sprint 1 — 장소 탐색 🔴 최우선
+
+| 엔드포인트 | 프론트 라우터 |
+|---|---|
+| `GET /places` | `/`, `/gyms` |
+| `GET /places/home-map-summary` | `/` |
+| `GET /gyms/:id` | `/gyms/:gymId` |
+| `GET /gyms/:id/gallery` | `/gyms/:gymId` |
+| `GET /gyms/:id/pricing-policy` | `/gyms/:gymId`, `/checkout` |
+| `GET /gyms/:id/calendar?month=&selectedDate=` | `/gyms/:gymId` |
+| `GET /outdoors/:id` | `/place/outdoor/:id` |
+| `GET /outdoors/:id/gallery` | `/place/outdoor/:id` |
+| `GET /outdoors/:id/reviews` | `/place/outdoor/:id` |
+| `GET /outdoors/:id/review-summary` | `/place/outdoor/:id` |
+
+### Sprint 2 — 예약 플로우 🔴 핵심 비즈니스
+
+| 엔드포인트 | 프론트 라우터 |
+|---|---|
+| `POST /reservations` | `/checkout` |
+| `GET /reservations/:id` | `/checkout`, `/success` |
+| `GET /gyms/:id/payment-methods` | `/checkout` |
+| `POST /reservations/:id/transfer-done` | `/checkout` |
+| `GET /reservations/:id/timeline` | `/success` |
+| `GET /my/reservations` | `/my/reservations` |
+
+> **중복 예약 방지**: `(gym_place_id, date, start_time)` DB UNIQUE + `status != CANCELLED` 조건
+
+### Sprint 3 — 운영자 콘솔 🟡
+
+| 엔드포인트 | 프론트 라우터 |
+|---|---|
+| `GET /owners/me/dashboard` | `/owner` |
+| `GET /gyms/:id/schedule` | `/owner/schedule` |
+| `PATCH /gyms/:id/slots/:date/:time` | `/owner/schedule` |
+| `POST/PATCH/DELETE /gyms/:id/repeat-rules` | `/owner/schedule` |
+| `POST/PATCH/DELETE /gyms/:id/exception-rules` | `/owner/schedule` |
+| `PUT /gyms/:id/pricing-policy` | `/owner/schedule` |
+| `GET/PUT /gyms/:id/payment-methods` | `/owner/payment-methods` |
+| `GET /owners/me/reservations` | `/owner/reservations` |
+| `POST /reservations/:id/mark-checked` | `/owner/reservations` |
+| `POST /reservations/:id/mark-confirmed` | `/owner/reservations` |
+| `POST /reservations/:id/mark-cancelled` | `/owner/reservations` |
+
+### Sprint 4 — 리뷰 + Admin 🟢
+
+| 엔드포인트 | 프론트 라우터 |
+|---|---|
+| `POST /outdoors/:id/reviews` | `/place/outdoor/:id` |
+| `GET /admin/reviews` | `/ops` |
+| `POST /admin/reviews/:id/hide` | `/ops` |
+| `POST /admin/reviews/:id/restore` | `/ops` |
+
+### Sprint 5 — 파일 업로드 + 슬롯 자동 생성
+
+| 기능 | 설명 |
+|---|---|
+| `POST /uploads/images` | S3/MinIO 저장 후 URL 반환 |
+| 슬롯 생성 엔진 | repeat_rules + exception_rules + overrides 조합 → slots upsert |
+
+---
+
+## Phase 4 — 핵심 비즈니스 로직
+
+### 4-1. 슬롯 생성 알고리즘
+
+```
+입력: gym_place_id, month(YYYY-MM)
+1. repeat_rules 조회 → CLASS/REGULAR 패턴
+2. exception_rules 조회 → 휴관일
+3. 기본 AVAILABLE 슬롯 생성 (운영시간 기준, 1시간 단위)
+4. 반복 규칙 → status 변경
+5. 예외 규칙 → status = CLOSED
+6. slot_overrides → 운영자 수동 변경 덮어쓰기
+7. slots 테이블 upsert
+```
+
+### 4-2. 가격 계산 로직
+
+```python
+def calculate_price(headcount, policy, date):
+    is_weekend = date.weekday() >= 5
+    base = policy.weekend_hourly_price if is_weekend else policy.base_hourly_price
+
+    discount, discount_applied = 0, False
+    if policy.discount_person_threshold and headcount <= policy.discount_person_threshold:
+        if not policy.same_day_only or date == today():
+            discount = base * (policy.discount_rate_percent / 100)
+            discount = max(discount, policy.discount_fixed_amount or 0)
+            discount_applied = True
+
+    return {
+        "base_price": base,
+        "discount_applied": discount_applied,
+        "discount_amount": int(discount),
+        "final_price": base - int(discount)
+    }
+```
+
+### 4-3. 예약 상태 전이 (State Machine)
+
+```
+REQUESTED → AWAITING_TRANSFER    (예약 생성 직후 자동)
+         → TRANSFER_SUBMITTED    (사용자: transfer-done)
+         → OWNER_VERIFIED        (운영자: mark-checked)
+         → CONFIRMED             (운영자: mark-confirmed)
+[아무 상태] → CANCELLED          (운영자: mark-cancelled / 타임아웃)
+```
+
+---
+
+## Phase 5 — 배포 전략
+
+### 배포 옵션 비교
+
+| 옵션 | 비용 | 난이도 | 권장 시점 |
+|---|---|---|---|
+| **Railway** | $5/월~ | ⭐ 쉬움 | MVP 즉시 ✅ |
+| **Render** | 무료(제한)/유료 | ⭐ 쉬움 | MVP |
+| **Fly.io** | $3/월~ | ⭐⭐ 중간 | MVP |
+| **AWS EC2 + RDS** | $30/월~ | ⭐⭐⭐ 어려움 | 스케일 시 |
+| **GCP Cloud Run** | 사용량 기준 | ⭐⭐ 중간 | 스케일 시 |
+
+### Railway 배포 흐름
+
+```
+1. GitHub 레포 생성 (basket-backend)
+2. Railway 프로젝트 생성
+   - PostgreSQL 플러그인 추가 (DB URL 자동 제공)
+   - API 서비스 추가 (GitHub 레포 연결)
+3. 환경변수 설정 (DATABASE_URL, JWT_SECRET_KEY, S3_*)
+4. Dockerfile 기반 자동 빌드/배포
+5. 프론트(Vercel) CORS 허용 설정
+```
+
+### 주요 환경변수
+
+```env
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/basket
+JWT_SECRET_KEY=your-secret-key
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+S3_ENDPOINT=https://...
+S3_BUCKET=basket-assets
+CORS_ORIGINS=https://your-frontend.vercel.app
+```
+
+---
+
+## 전체 타임라인 (5주 계획)
+
+| 주차 | 작업 |
+|---|---|
+| **Week 1** | 프로젝트 셋업, Docker Compose, Alembic 마이그레이션 18개 테이블 + 시드 데이터 |
+| **Week 2** | JWT 인증, Sprint 1 장소 탐색 API |
+| **Week 3** | Sprint 2 예약 플로우 + 프론트 `/checkout` 연동 |
+| **Week 4** | Sprint 3 운영자 콘솔 |
+| **Week 5** | Sprint 4+5 리뷰/파일업로드 + Railway 배포 + E2E 검증 |
+
+---
+
+## 검증 계획
+
+### 자동 테스트 (pytest)
+
+```bash
+pytest tests/ -v
+```
+
+필수 케이스:
+- 동일 슬롯 2번 예약 → `DUPLICATE_RESERVATION` 오류
+- 잘못된 상태에서 `mark-confirmed` → `INVALID_RESERVATION_STATE` 오류
+- 가격 계산: 할인 적용/미적용 케이스
+- 슬롯 상태가 `AVAILABLE`이 아닐 때 예약 시도 → `SLOT_NOT_RESERVABLE`
+
+### Swagger UI 수동 검증
+
+- `http://localhost:8000/docs` 에서 각 엔드포인트 직접 호출
+- 프론트 `/checkout` 플로우 실제 API E2E 흐름 테스트
