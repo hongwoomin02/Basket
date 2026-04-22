@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Date, DateTime, Enum, Integer, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -16,7 +16,7 @@ class OutdoorReview(Base):
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     nickname: Mapped[str] = mapped_column(String(50), nullable=False)
     rating: Mapped[float] = mapped_column(Numeric(2, 1), nullable=False)
-    # tags: PostgreSQL ARRAY - Alembic에서 처리
+    tags: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     visited_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(

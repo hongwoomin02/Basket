@@ -14,7 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -52,7 +52,7 @@ class GymPaymentMethod(Base):
     bank_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
     account_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     account_holder: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    # visible_methods는 PostgreSQL ARRAY - Alembic에서 처리
+    visible_methods: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

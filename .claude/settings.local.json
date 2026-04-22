@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\" -PassThru)",
+      "Bash(cmd.exe /c \"start \\\\\"\\\\\" \\\\\"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\\\\\"\")",
+      "Bash(cmd.exe /c \"\\\\\"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\\\\\"\")",
+      "Bash(docker info *)",
+      "Bash(docker compose *)",
+      "Bash(docker context *)"
+    ]
+  }
+}

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MockProvider } from './store/MockProvider';
 import { ToastProvider } from './context/ToastContext';
+import { AuthProvider } from './context/AuthContext';
 import { AppLayout } from './components/AppLayout';
 
 // Public Pages
@@ -31,6 +32,7 @@ import { OutdoorSpotPage } from './pages/OutdoorSpotPage';
 
 function App() {
     return (
+        <AuthProvider>
         <MockProvider>
             <ToastProvider>
             <BrowserRouter>
@@ -65,6 +67,7 @@ function App() {
             </BrowserRouter>
             </ToastProvider>
         </MockProvider>
+        </AuthProvider>
     );
 }
 

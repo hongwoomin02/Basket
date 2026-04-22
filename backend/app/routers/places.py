@@ -1,12 +1,14 @@
-"""장소 목록/홈 맵 API — Sprint 1"""
+"""장소 목록/홈 맵 API"""
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import and_, select
+from sqlalchemy import and_, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.place import Place
+from app.models.schedule import SchedulePricingPolicy, Slot
 from app.schemas.common import Response
 
 router = APIRouter(prefix="/places", tags=["places"])
@@ -17,14 +19,13 @@ async def list_places(
     db: Annotated[AsyncSession, Depends(get_db)],
     district: str | None = Query(None),
     place_type: str | None = Query(None, alias="placeType"),
+    reservable_only: bool = Query(False, alias="reservableOnly"),
+    discountable_only: bool = Query(False, alias="discountableOnly"),
     q: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    """
-    GET /places
-    홈 화면 + 체육관 목록 필터 공용 엔드포인트
-    """
+    """GET /places — 홈 화면 + 체육관 목록 필터 공용 엔드포인트"""
     conditions = [Place.is_active.is_(True)]
     if district:
         conditions.append(Place.district == district)
@@ -32,6 +33,26 @@ async def list_places(
         conditions.append(Place.type == place_type.upper())
     if q:
         conditions.append(Place.name.ilike(f"%{q}%"))
+    if reservable_only:
+        today = date.today()
+        conditions.append(
+            exists(
+                select(Slot.id).where(
+                    Slot.gym_place_id == Place.id,
+                    Slot.status == "AVAILABLE",
+                    Slot.date >= today,
+                )
+            )
+        )
+    if discountable_only:
+        conditions.append(
+            exists(
+                select(SchedulePricingPolicy.gym_place_id).where(
+                    SchedulePricingPolicy.gym_place_id == Place.id,
+                    SchedulePricingPolicy.discount_person_threshold.isnot(None),
+                )
+            )
+        )
 
     result = await db.execute(
         select(Place).where(and_(*conditions)).limit(limit).offset(offset)

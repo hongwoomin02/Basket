@@ -1,4 +1,4 @@
-"""Admin 리뷰 검수 API — Sprint 4"""
+"""Admin 리뷰 검수 API"""
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated
@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies.auth import require_role
-from app.models.place import Place
-from app.models.review import OutdoorReview, ReviewModerationAudit
+from app.models.place import Place, PlaceAsset
+from app.models.review import OutdoorReview, ReviewModerationAudit, ReviewPhoto
 from app.models.user import User
 from app.schemas.common import Response
 
@@ -39,16 +39,39 @@ async def list_reviews(
     rows = []
     for r in reviews:
         place = await db.get(Place, r.place_id)
+        photo_count = (await db.execute(
+            select(ReviewPhoto).where(ReviewPhoto.review_id == r.id)
+        )).scalars().all()
         rows.append({
             "id": str(r.id),
             "placeName": place.name if place else "",
             "nickname": r.nickname,
             "rating": float(r.rating),
+            "tags": r.tags or [],
             "content": r.content,
+            "hasPhoto": len(photo_count) > 0,
             "status": r.status,
             "createdAt": r.created_at.isoformat(),
         })
     return Response(data={"reviewRows": rows})
+
+
+@router.get("/reviews/{review_id}/photos")
+async def get_review_photos(
+    review_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(admin_required)],
+):
+    photos_result = await db.execute(
+        select(ReviewPhoto).where(ReviewPhoto.review_id == review_id).order_by(ReviewPhoto.sort_order)
+    )
+    photos = photos_result.scalars().all()
+    photo_list = []
+    for p in photos:
+        asset = await db.get(PlaceAsset, p.asset_id)
+        if asset:
+            photo_list.append({"id": str(p.id), "url": asset.url})
+    return Response(data={"photos": photo_list})
 
 
 async def _moderate_review(
