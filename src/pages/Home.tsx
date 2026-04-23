@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import homeData from '../data/routes/home.json';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMock } from '../store/MockProvider';
-import { useMockPageLoad } from '../hooks/useMockPageLoad';
 import { useToast } from '../context/ToastContext';
+import { usePlaces } from '../hooks/usePlaces';
+import { placesApi, HomeMapSummary } from '../lib/api';
 import {
-    CalendarDays,
-    Key,
     MapPin,
     MessageCircle,
     Map,
@@ -19,6 +17,21 @@ import {
     List,
     MapPinned,
 } from 'lucide-react';
+
+// ── 정적 UI 구성 (이전 home.json 에서 이관; 데이터가 아니라 "UI 카피/옵션") ──
+const EXPLORE_TITLE = '부산 실내·야외 농구 공간';
+const EXPLORE_SUBTITLE = '지도·목록·문의 가능한 체육관과 야외 코트를 한 번에 확인하세요.';
+const SEARCH_PLACEHOLDER = '체육관명, 지역, 설명으로 검색';
+const NEARBY_RADIUS_KM = 10;
+const DEFAULT_QUICK_FILTERS: QuickFilter[] = [
+    { key: 'district', label: '지역', selected: '전체', options: ['전체', '해운대구', '수영구', '금정구', '남구', '부산진구', '동래구'] },
+    { key: 'placeType', label: '종류', selected: '전체', options: ['전체', '실내 체육관', '야외 농구장'] },
+    { key: 'reservable', label: '예약', selected: '전체', options: ['전체', '예약 가능만'] },
+    { key: 'discountable', label: '할인', selected: '전체', options: ['전체', '할인 가능만'] },
+];
+const FEATURED_CARDS = [
+    { id: 'feat1', title: '부산 전역 농구 공간 탐색', description: '지도와 목록을 나란히 확인하며 가장 가까운 코트를 찾아보세요.' },
+];
 
 const BUSAN_LAT_MIN = 35.05;
 const BUSAN_LAT_MAX = 35.25;
@@ -79,32 +92,26 @@ type PlaceRow = {
 };
 
 export const Home: React.FC = () => {
-    const view = homeData.view as typeof homeData.view & {
-        searchBar?: { placeholder: string; value: string };
-        quickFilters?: QuickFilter[];
-        sections?: { featured?: { id: string; title: string; description: string }[] };
-        places?: PlaceRow[];
-        inquiryGyms?: InquiryGymRow[];
-        mapSummary?: {
-            title: string;
-            centerLabel?: string;
-            markerCount?: number;
-            legend?: { type: string; label: string }[];
-            pins: { gymId: string; name: string; lat: number; lng: number; available: boolean; pinType?: string }[];
-            outdoorPins?: { placeId: string; name: string; lat: number; lng: number; district?: string }[];
-        };
-    };
-    const page = homeData.page as typeof homeData.page & { exploreTitle?: string; exploreSubtitle?: string };
-
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { role, mockMode, logEvent } = useMock();
     const { showToast } = useToast();
-    const { loading, isError, isEmpty: jsonEmpty, reload } = useMockPageLoad(homeData as typeof homeData & { __mock?: { mode?: string } });
 
-    const [search, setSearch] = useState(view.searchBar?.value ?? '');
+    // ── 서버 상태 ────────────────────────────────────────
+    const { places: placeCards, isLoading: placesLoading, error: placesError } = usePlaces();
+    const [mapSummary, setMapSummary] = useState<HomeMapSummary | null>(null);
+    const [mapError, setMapError] = useState<string | null>(null);
+    useEffect(() => {
+        placesApi
+            .homeMapSummary()
+            .then((d) => setMapSummary(d))
+            .catch(() => setMapError('지도 데이터를 불러오지 못했습니다.'));
+    }, []);
+
+    // ── UI 상태 ──────────────────────────────────────────
+    const [search, setSearch] = useState('');
     const [filters, setFilters] = useState<QuickFilter[]>(() =>
-        view.quickFilters?.length ? JSON.parse(JSON.stringify(view.quickFilters)) : []
+        JSON.parse(JSON.stringify(DEFAULT_QUICK_FILTERS))
     );
     const [mapUiMode, setMapUiMode] = useState<'list' | 'map'>('list');
     const [mapExpanded, setMapExpanded] = useState(false);
@@ -115,7 +122,43 @@ export const Home: React.FC = () => {
     const [reviewStars, setReviewStars] = useState(0);
     const [reviewText, setReviewText] = useState('');
 
-    const inquiryGyms = (view.inquiryGyms ?? []) as InquiryGymRow[];
+    // ── API 응답 → 기존 JSX가 기대하는 뷰 모델 ───────────
+    const places: PlaceRow[] = useMemo(
+        () =>
+            placeCards.map((p) => ({
+                id: p.id,
+                routeType: p.routeType,
+                name: p.name,
+                district: p.district,
+                placeType: p.placeType,
+                reservable: p.reservable,
+                discountable: p.discountable,
+                shortDescription: p.shortDescription,
+                rating: p.rating ?? undefined,
+                badges: p.badges,
+                to: p.to,
+            })),
+        [placeCards]
+    );
+
+    const inquiryGyms: InquiryGymRow[] = useMemo(
+        () =>
+            placeCards
+                .filter((p) => p.routeType === 'gym')
+                .map((p) => ({
+                    gymId: p.id,
+                    name: p.name,
+                    address: p.address,
+                    available: true, // 예약 가능 여부는 세부 API 연동 이후에 치환 (Phase 3)
+                    distanceKm: 0,
+                    to: p.to,
+                    district: p.district,
+                    placeType: p.placeType,
+                    discountable: p.discountable,
+                })),
+        [placeCards]
+    );
+
     type MapExt = {
         title: string;
         pins: { gymId: string; name: string; lat: number; lng: number; available: boolean; pinType?: string }[];
@@ -124,11 +167,45 @@ export const Home: React.FC = () => {
         legend?: { type: string; label: string }[];
         outdoorPins?: { placeId: string; name: string; lat: number; lng: number; district?: string }[];
     };
-    const mapSummary: MapExt = { title: '부산 대관 지도', pins: [], ...(view.mapSummary ?? {}) };
-    const outdoorRanking = view.outdoorRanking ?? [];
-    const nearbyRadiusKm = view.nearbyRadiusKm ?? 10;
-    const places = (view.places ?? []) as PlaceRow[];
-    const featured = view.sections?.featured ?? [];
+    const mapSummaryView: MapExt = useMemo(() => {
+        const gymPins = (mapSummary?.pins ?? [])
+            .filter((pin) => pin.kind === 'GYM')
+            .map((pin) => ({
+                gymId: pin.placeId,
+                name: pin.name,
+                lat: pin.lat,
+                lng: pin.lng,
+                available: true,
+                pinType: 'indoor' as const,
+            }));
+        const outdoorPins = (mapSummary?.pins ?? [])
+            .filter((pin) => pin.kind === 'OUTDOOR')
+            .map((pin) => ({
+                placeId: pin.placeId,
+                name: pin.name,
+                lat: pin.lat,
+                lng: pin.lng,
+                district: '',
+            }));
+        return {
+            title: '부산 대관 지도',
+            pins: gymPins,
+            centerLabel: mapSummary?.centerLabel,
+            markerCount: mapSummary?.markerCount,
+            legend: mapSummary?.legend,
+            outdoorPins,
+        };
+    }, [mapSummary]);
+
+    // 야외 랭킹은 현재 API 가 rating 을 제공하지 않으므로 Phase 3 에서 reviewSummary 연동 후 복원.
+    const outdoorRanking: Array<{ placeId: string; name: string; rank: number; rating: number; address?: string; reviews?: { text: string; rating: number }[] }> = [];
+    const nearbyRadiusKm = NEARBY_RADIUS_KM;
+    const featured = FEATURED_CARDS;
+
+    const loading = placesLoading;
+    const isError = !!placesError;
+    const jsonEmpty = placeCards.length === 0;
+    const reload = () => window.location.reload();
 
     const effectiveError = isError || mockMode === 'error';
 
@@ -173,11 +250,11 @@ export const Home: React.FC = () => {
         const pt = filters.find((f) => f.key === 'placeType')?.selected;
         if (pt === '야외 농구장') return [];
         const allowed = new Set(filteredInquiryGyms.map((g) => g.gymId));
-        return mapSummary.pins.filter((p) => allowed.has(p.gymId));
-    }, [filteredInquiryGyms, mapSummary.pins, filters]);
+        return mapSummaryView.pins.filter((p) => allowed.has(p.gymId));
+    }, [filteredInquiryGyms, mapSummaryView.pins, filters]);
 
     const displayOutdoorPins = useMemo(() => {
-        const raw = mapSummary.outdoorPins ?? [];
+        const raw = mapSummaryView.outdoorPins ?? [];
         return raw.filter((pin) =>
             matchesHomeFiltersCore(
                 {
@@ -191,7 +268,7 @@ export const Home: React.FC = () => {
                 filters
             )
         );
-    }, [mapSummary.outdoorPins, search, filters]);
+    }, [mapSummaryView.outdoorPins, search, filters]);
 
     const mapVisibleCount = displayGymPins.length + displayOutdoorPins.length;
     const rentableGymCount = filteredInquiryGyms.filter((g) => g.reservable).length;
@@ -215,8 +292,8 @@ export const Home: React.FC = () => {
 
     const resetFilters = () => {
         setOpenFilterKey(null);
-        if (view.quickFilters?.length) setFilters(JSON.parse(JSON.stringify(view.quickFilters)));
-        setSearch(view.searchBar?.value ?? '');
+        setFilters(JSON.parse(JSON.stringify(DEFAULT_QUICK_FILTERS)));
+        setSearch('');
         logEvent('HOME_FILTER_RESET', {});
         showToast('필터를 초기화했습니다.');
         window.requestAnimationFrame(() => {
@@ -286,18 +363,15 @@ export const Home: React.FC = () => {
                 </div>
             </div>
 
-            {(page.exploreTitle || page.exploreSubtitle) && (
-                <div style={{ padding: '16px 20px 8px', background: 'var(--bg-page)' }}>
-                    {page.exploreTitle && <h2 style={{ fontSize: '17px', fontWeight: 900, color: 'var(--gray-900)', letterSpacing: '-0.02em' }}>{page.exploreTitle}</h2>}
-                    {page.exploreSubtitle && <p style={{ fontSize: '13px', color: 'var(--gray-500)', fontWeight: 600, marginTop: '6px', lineHeight: 1.45 }}>{page.exploreSubtitle}</p>}
-                </div>
-            )}
+            <div style={{ padding: '16px 20px 8px', background: 'var(--bg-page)' }}>
+                <h2 style={{ fontSize: '17px', fontWeight: 900, color: 'var(--gray-900)', letterSpacing: '-0.02em' }}>{EXPLORE_TITLE}</h2>
+                <p style={{ fontSize: '13px', color: 'var(--gray-500)', fontWeight: 600, marginTop: '6px', lineHeight: 1.45 }}>{EXPLORE_SUBTITLE}</p>
+            </div>
 
-            {view.searchBar && (
-                <div style={{ padding: '12px 20px', background: 'var(--bg-page)' }}>
+            <div style={{ padding: '12px 20px', background: 'var(--bg-page)' }}>
                     <input
                         className="input-field"
-                        placeholder={view.searchBar.placeholder}
+                        placeholder={SEARCH_PLACEHOLDER}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         onKeyDown={(e) => {
@@ -309,7 +383,6 @@ export const Home: React.FC = () => {
                         style={{ height: '48px' }}
                     />
                 </div>
-            )}
 
             {filters.length > 0 && (
                 <div
@@ -423,8 +496,8 @@ export const Home: React.FC = () => {
                                 <MapPinned size={18} /> 부산 지도 프리뷰
                             </h3>
                             <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--gray-500)' }}>
-                                {mapSummary.centerLabel ?? '부산'} · 지도 {mapVisibleCount}곳
-                                {mapSummary.markerCount != null ? ` (전체 ${mapSummary.markerCount})` : ''}
+                                {mapSummaryView.centerLabel ?? '부산'} · 지도 {mapVisibleCount}곳
+                                {mapSummaryView.markerCount != null ? ` (전체 ${mapSummaryView.markerCount})` : ''}
                             </span>
                         </div>
                         <div
@@ -485,13 +558,13 @@ export const Home: React.FC = () => {
                                 );
                             })}
                             <div style={{ position: 'absolute', bottom: '8px', left: '12px', right: '12px', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', fontSize: '11px', fontWeight: 700 }}>
-                                {mapSummary.legend?.map((L) => (
+                                {mapSummaryView.legend?.map((L) => (
                                     <span key={L.type} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--gray-700)' }}>
                                         <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: L.type === 'outdoor' ? 'var(--brand-energy)' : 'var(--status-success)' }} />
                                         {L.label}
                                     </span>
                                 ))}
-                                {!mapSummary.legend?.length && (
+                                {!mapSummaryView.legend?.length && (
                                     <>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--status-success)' }} /> 대관가능
@@ -604,7 +677,7 @@ export const Home: React.FC = () => {
             {displayGymPins.length > 0 && places.length === 0 && (
                 <div style={{ padding: '0 20px 24px', background: 'var(--bg-page)' }}>
                     <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--gray-900)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
-                        <Map size={18} /> {mapSummary.title}
+                        <Map size={18} /> {mapSummaryView.title}
                     </h3>
                     <div
                         onClick={() => navigate('/gyms')}

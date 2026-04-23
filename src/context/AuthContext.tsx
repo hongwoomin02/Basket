@@ -6,6 +6,8 @@ interface AuthUser {
   email: string;
   role: "USER" | "OWNER" | "ADMIN" | "ORGANIZER" | "OPS";
   displayName: string;
+  phone: string | null;
+  notificationEnabled: boolean;
 }
 
 interface AuthState {
@@ -36,6 +38,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: data.email,
           role: data.role as AuthUser["role"],
           displayName: data.display_name,
+          phone: data.phone,
+          notificationEnabled: data.notification_enabled,
         });
       })
       .catch(() => {
@@ -55,6 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: data.email,
       role: data.role as AuthUser["role"],
       displayName: data.display_name,
+      phone: data.phone,
+      notificationEnabled: data.notification_enabled,
     });
   }, []);
 

@@ -110,6 +110,9 @@ async def get_gym_calendar(
             "slots": [
                 {
                     "id": str(s.id),
+                    "date": s.date.isoformat(),
+                    "startTime": s.start_time.strftime("%H:%M"),
+                    "endTime": s.end_time.strftime("%H:%M"),
                     "time": f"{s.start_time.strftime('%H:%M')} ~ {s.end_time.strftime('%H:%M')}",
                     "status": s.status,
                     "price": s.price if s.status == "AVAILABLE" else None,

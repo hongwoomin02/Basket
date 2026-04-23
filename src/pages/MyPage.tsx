@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMock } from '../store/MockProvider';
+import { useAuth } from '../context/AuthContext';
 import { Header } from '../components/Header';
 import {
     User, Bell, Shield, LogOut, Trash2,
@@ -8,14 +9,22 @@ import {
 } from 'lucide-react';
 
 export const MyPage: React.FC = () => {
-    const { role, setRole, applications, removeApplication } = useMock();
+    const { applications, removeApplication } = useMock();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
-    const isOwner = role === 'OWNER';
+    // 실제 권한은 DB에 저장된 user.role 하나로 결정한다. MockProvider.role 은 사용하지 않는다.
+    const actualRole = user?.role ?? 'USER';
+    const isOwner = actualRole === 'OWNER' || actualRole === 'ADMIN';
     const [cancelTarget, setCancelTarget] = React.useState<{ id: string; title: string; price: number; cancelFeePercent: number } | null>(null);
+    const [showOwnerNotice, setShowOwnerNotice] = React.useState(false);
 
     const handleLogout = () => {
-        setRole('GUEST');
+        logout();
         navigate('/login');
+    };
+
+    const handleTryOwner = () => {
+        setShowOwnerNotice(true);
     };
 
     const MenuItem: React.FC<{ icon: React.ReactNode; label: string; desc?: string; onClick: () => void; danger?: boolean }> = ({ icon, label, desc, onClick, danger }) => (
@@ -47,7 +56,7 @@ export const MyPage: React.FC = () => {
             {/* Header */}
             <div style={{ padding: '0 20px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-light)' }}>
                 <h1 style={{ fontSize: '18px', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--brand-primary)' }}>마이</h1>
-                <span className="badge badge-gray">{role}</span>
+                <span className="badge badge-gray">{actualRole}</span>
             </div>
 
             {/* Profile Hero */}
@@ -60,10 +69,10 @@ export const MyPage: React.FC = () => {
                         {isOwner ? '파트너 계정' : '개인 회원'}
                     </p>
                     <h2 style={{ fontSize: '20px', fontWeight: 900 }}>
-                        {isOwner ? '에이치 스포츠 반여점' : '홍길동 (BusoCourt 회원)'}
+                        {user?.displayName ?? '게스트'}
                     </h2>
                     <p style={{ fontSize: '12px', color: 'var(--gray-300)', marginTop: '2px' }}>
-                        {isOwner ? '사업자 인증 완료 ✓' : `예약 내역 ${applications.length}건`}
+                        {user?.email ?? ''}
                     </p>
                 </div>
             </div>
@@ -143,46 +152,28 @@ export const MyPage: React.FC = () => {
                 </>
             )}
 
-            {/* Role switch: OWNER ↔ GUEST (체육관 사장도 GUEST로 이용 가능) */}
-            {(role === 'OWNER' || role === 'GUEST') && (
+            {/* Role guidance: 실제 권한은 DB에 저장된 user.role 로 결정되며,
+                UI에서 임의 전환은 불가능하다. USER 가 OWNER 에 접근하려면 /signup?as=OWNER 로 신규 가입해야 함. */}
+            {!isOwner && (
                 <>
-                    <SectionTitle title={role === 'OWNER' ? '역할 전환' : '계정'} />
+                    <SectionTitle title="파트너(사장님)" />
                     <div style={{ borderTop: '1px solid var(--border-light)' }}>
-                        {role === 'OWNER' ? (
-                            <button
-                                type="button"
-                                onClick={() => setRole('GUEST')}
-                                style={{
-                                    width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
-                                    padding: '16px 20px', background: 'var(--bg-surface)',
-                                    borderBottom: '1px solid var(--border-light)', textAlign: 'left', cursor: 'pointer'
-                                }}
-                            >
-                                <div style={{ color: 'var(--brand-trust)' }}><User size={20} /></div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--gray-900)' }}>GUEST로 보기</div>
-                                    <div style={{ fontSize: '12px', color: 'var(--gray-400)', marginTop: '2px' }}>개인 회원처럼 대관 이용</div>
-                                </div>
-                                <ChevronRight size={16} color="var(--gray-300)" />
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={() => setRole('OWNER')}
-                                style={{
-                                    width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
-                                    padding: '16px 20px', background: 'var(--bg-surface)',
-                                    borderBottom: '1px solid var(--border-light)', textAlign: 'left', cursor: 'pointer'
-                                }}
-                            >
-                                <div style={{ color: 'var(--gray-500)' }}><Building2 size={20} /></div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--gray-900)' }}>파트너(사장)로 전환</div>
-                                    <div style={{ fontSize: '12px', color: 'var(--gray-400)', marginTop: '2px' }}>체육관 관리 콘솔</div>
-                                </div>
-                                <ChevronRight size={16} color="var(--gray-300)" />
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            onClick={handleTryOwner}
+                            style={{
+                                width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
+                                padding: '16px 20px', background: 'var(--bg-surface)',
+                                borderBottom: '1px solid var(--border-light)', textAlign: 'left', cursor: 'pointer'
+                            }}
+                        >
+                            <div style={{ color: 'var(--gray-500)' }}><Building2 size={20} /></div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--gray-900)' }}>파트너 콘솔로 전환</div>
+                                <div style={{ fontSize: '12px', color: 'var(--gray-400)', marginTop: '2px' }}>체육관 등록·예약 관리</div>
+                            </div>
+                            <ChevronRight size={16} color="var(--gray-300)" />
+                        </button>
                     </div>
                 </>
             )}
@@ -208,6 +199,46 @@ export const MyPage: React.FC = () => {
                     onClick={() => navigate('/my/terms')}
                 />
             </div>
+
+            {/* Owner 전환 안내 모달: 실제로는 DB role 변경 불가. 별도 OWNER 가입으로 유도. */}
+            {showOwnerNotice && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div className="card" style={{ width: '100%', maxWidth: '360px', padding: '24px' }}>
+                        <h3 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Building2 size={18} color="var(--brand-trust)" /> 파트너 가입이 필요해요
+                        </h3>
+                        <p style={{ fontSize: '13px', color: 'var(--gray-600)', lineHeight: 1.6, marginBottom: '12px' }}>
+                            체육관 운영·예약 관리 기능은 <strong style={{ color: 'var(--brand-trust)' }}>파트너 계정</strong> 전용입니다.
+                            현재 개인 계정({user?.email ?? '게스트'})에는 해당 권한이 없습니다.
+                        </p>
+                        <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginBottom: 20, lineHeight: 1.6 }}>
+                            사업자 인증과 함께 새 파트너 계정으로 가입하시면 콘솔이 열립니다. (개인 계정은 그대로 유지됩니다.)
+                        </p>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                style={{ flex: 1, background: 'white' }}
+                                onClick={() => setShowOwnerNotice(false)}
+                            >
+                                돌아가기
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-trust"
+                                style={{ flex: 1 }}
+                                onClick={() => {
+                                    setShowOwnerNotice(false);
+                                    logout();
+                                    navigate('/signup?as=OWNER');
+                                }}
+                            >
+                                파트너로 가입하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Cancel confirm modal */}
             {cancelTarget && (

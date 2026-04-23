@@ -1,322 +1,342 @@
-import React, { useState, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
-import ownerData from '../data/routes/owner.json';
 import { useMock } from '../store/MockProvider';
-import { TrendingUp, Activity, Plus, ToggleLeft, ToggleRight, Edit3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ownerApi, OwnerDashboard, OwnedGymBrief } from '../lib/api';
+import {
+    TrendingUp, Activity, Tag, AlertCircle, Building2,
+    ChevronRight, CalendarCheck, Clock, Wallet,
+    Mail, MessageSquare, Copy, X, Check, Calendar, DollarSign,
+} from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
-const TIME_BLOCKS = ['06~09', '09~12', '12~15', '15~18', '18~21', '21~24'];
-const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
-const MONTH_NAMES = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+/**
+ * Owner 콘솔
+ * - /owner : 대시보드 (ownerApi.dashboard)
+ * - /owner/schedule : 시간표 편집 (Phase 5 연동 예정, 현재는 안내만)
+ *
+ * 사용자 관점 커버리지:
+ *   ① 체육관 미보유 (NO_GYM)    ② 1개 보유   ③ 다중 보유 (드롭다운)
+ *   ④ 네트워크 에러   ⑤ 로딩   ⑥ KPI 클릭 → 예약 필터 이동
+ *   ⑦ 최근 예약 0건   ⑧ 최근 예약 카드 클릭 → 예약 관리 이동
+ */
 
-function getWeeksInMonth(year: number, month: number): number {
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    return Math.ceil((firstDay + daysInMonth) / 7);
-}
+const STATUS_BADGE: Record<string, { label: string; className: string }> = {
+    AWAITING_TRANSFER: { label: '송금 대기', className: 'badge badge-gray' },
+    TRANSFER_SUBMITTED: { label: '송금 확인 중', className: 'badge badge-trust' },
+    OWNER_VERIFIED: { label: '운영자 확인', className: 'badge badge-trust' },
+    CONFIRMED: { label: '확정', className: 'badge badge-black' },
+    CANCELLED: { label: '취소됨', className: 'badge badge-gray' },
+};
 
-function getWeekDates(year: number, month: number, weekIdx: number): Date[] {
-    const firstDayOfMonth = new Date(year, month, 1);
-    const dayOfWeek = firstDayOfMonth.getDay();
-    const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const firstMonday = new Date(firstDayOfMonth);
-    firstMonday.setDate(firstDayOfMonth.getDate() + offsetToMonday + weekIdx * 7);
-    return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(firstMonday);
-        d.setDate(firstMonday.getDate() + i);
-        return d;
-    });
-}
+// KPI 라벨 → 예약 필터 라우트로 deep-link 매핑
+const KPI_TO_FILTER: Record<string, string | null> = {
+    '송금 대기': 'AWAITING_TRANSFER',
+    '예약 확정': 'CONFIRMED',
+    '할인 적용 예약': null, // 상태필터 아님 → 필터 없이 이동
+};
 
-type SlotStatus = 'OPEN' | 'CLOSED' | 'LESSON' | 'REGULAR';
-
-interface Slot {
-    id: string;
-    day: string;
-    time: string;
-    status: SlotStatus;
-    label?: string;
-    price?: number;
-}
-
-const INITIAL_SLOTS: Slot[] = DAY_LABELS.flatMap(day =>
-    TIME_BLOCKS.map(time => ({
-        id: `${day}-${time}`,
-        day,
-        time,
-        status: time === '15~18' ? 'LESSON' :
-            time === '09~12' && !['토', '일'].includes(day) ? 'LESSON' :
-                time === '06~09' && day !== '토' ? 'LESSON' :
-                    time === '12~15' && !['토', '일'].includes(day) ? 'OPEN' : 'REGULAR',
-        label: (time === '15~18' || (time === '09~12' && !['토', '일'].includes(day))) ? '코치 레슨' :
-            (time === '06~09' && day !== '토') ? '아침 레슨' : undefined,
-        price: 120000
-    }))
-);
+const KPI_ICON: Record<string, React.ReactNode> = {
+    '송금 대기': <Clock size={14} />,
+    '예약 확정': <TrendingUp size={14} />,
+    '할인 적용 예약': <Tag size={14} />,
+};
 
 export const Owner: React.FC = () => {
-    const location = useLocation();
     const navigate = useNavigate();
-    const isScheduleOnly = location.pathname === '/owner/schedule';
     const { logEvent } = useMock();
-    const [slots, setSlots] = useState<Slot[]>(INITIAL_SLOTS);
-    const [activeTab, setActiveTab] = useState<'overview' | 'add'>('overview');
-    const [editingSlot, setEditingSlot] = useState<Slot | null>(null);
 
-    const today = new Date();
-    const [scheduleYear, setScheduleYear] = useState(today.getFullYear());
-    const [scheduleMonth, setScheduleMonth] = useState(today.getMonth());
-    const [scheduleWeekIdx, setScheduleWeekIdx] = useState(0);
+    const { showToast } = useToast();
+    const [dashboard, setDashboard] = useState<OwnerDashboard | null>(null);
+    const [selectedGymId, setSelectedGymId] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [errorKind, setErrorKind] = useState<null | 'NO_GYM' | 'GENERIC'>(null);
+    const [contactOpen, setContactOpen] = useState(false);
+    const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-    const totalWeeks = useMemo(() => getWeeksInMonth(scheduleYear, scheduleMonth), [scheduleYear, scheduleMonth]);
-    const weekDates = useMemo(() => getWeekDates(scheduleYear, scheduleMonth, scheduleWeekIdx), [scheduleYear, scheduleMonth, scheduleWeekIdx]);
-    const weekRangeLabel = useMemo(() => {
-        if (weekDates.length < 2) return '';
-        const start = weekDates[0];
-        const end = weekDates[6];
-        return `${start.getMonth() + 1}/${start.getDate()} ~ ${end.getMonth() + 1}/${end.getDate()}`;
-    }, [weekDates]);
+    const PARTNER_EMAIL = 'partner@basket.kr';
+    const PARTNER_KAKAO = 'https://open.kakao.com/o/basket-partner';
 
-    // KPIs
-    const openSlots = slots.filter(s => s.status === 'OPEN').length;
-    const totalSlots = slots.length;
-    const utilisationRate = Math.round((1 - openSlots / totalSlots) * 100);
-
-    const toggleSlotStatus = (id: string) => {
-        setSlots(prev => prev.map(s => {
-            if (s.id !== id) return s;
-            const next: SlotStatus = s.status === 'OPEN' ? 'CLOSED' : 'OPEN';
-            logEvent('OWNER_TOGGLE_SLOT', { id, to: next });
-            return { ...s, status: next };
-        }));
+    const copyToClipboard = async (text: string, key: string) => {
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                // fallback — 클립보드 API 차단 환경
+                const ta = document.createElement('textarea');
+                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            setCopiedKey(key);
+            showToast('복사되었습니다.');
+            setTimeout(() => setCopiedKey(null), 1500);
+        } catch {
+            showToast('복사에 실패했습니다. 직접 선택해 주세요.');
+        }
     };
 
-    const updateSlot = (updated: Slot) => {
-        setSlots(prev => prev.map(s => s.id === updated.id ? updated : s));
-        setEditingSlot(null);
+    const loadDashboard = useCallback(async (gymId: string | null) => {
+        setLoading(true);
+        setErrorKind(null);
+        try {
+            const d = await ownerApi.dashboard(gymId ? { gym_id: gymId } : undefined);
+            setDashboard(d);
+            // 최초 로드 시 선택 gymId가 없었다면 현재 로드된 체육관으로 고정
+            setSelectedGymId((prev) => prev ?? d.ownerGymProfile.gymPlaceId);
+        } catch (e: unknown) {
+            const err = e as { response?: { status?: number; data?: { error?: { code?: string } } } };
+            if (err?.response?.status === 404 || err?.response?.data?.error?.code === 'NO_GYM') {
+                setErrorKind('NO_GYM');
+            } else {
+                setErrorKind('GENERIC');
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadDashboard(null);
+    }, [loadDashboard]);
+
+    const handleSwitchGym = (gymId: string) => {
+        logEvent('OWNER_SWITCH_GYM', { gymId });
+        setSelectedGymId(gymId);
+        loadDashboard(gymId);
     };
 
-    const statusStyle = (status: SlotStatus) => {
-        if (status === 'OPEN') return { bg: 'var(--brand-light)', color: 'var(--brand-trust)', label: '판매중' };
-        if (status === 'CLOSED') return { bg: 'var(--gray-100)', color: 'var(--gray-500)', label: '차단됨' };
-        if (status === 'LESSON') return { bg: '#E5E7EB', color: 'var(--gray-700)', label: '수업' };
-        return { bg: '#FEF2F2', color: 'var(--status-error)', label: '정기대관' };
+    const handleKpiClick = (label: string) => {
+        const statusParam = KPI_TO_FILTER[label];
+        if (statusParam) navigate(`/owner/reservations?status=${statusParam}`);
+        else navigate('/owner/reservations');
     };
 
-    const scheduleSection = (
-                <div style={{ padding: '20px' }}>
-                    <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginBottom: '16px', fontWeight: 600 }}>슬롯을 클릭해서 상태 변경하거나, ✏️ 버튼으로 상세 편집하세요.</p>
-
-                    {/* 년/월 선택 */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', padding: '12px 16px', background: 'var(--gray-50)', borderRadius: 'var(--r-md)', border: '1px solid var(--border-light)' }}>
-                        <button type="button" onClick={() => { if (scheduleMonth === 0) { setScheduleMonth(11); setScheduleYear((y) => y - 1); } else setScheduleMonth((m) => m - 1); }} style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-surface)', border: '1px solid var(--border-light)', borderRadius: 'var(--r-sm)' }}>
-                            <ChevronLeft size={18} />
-                        </button>
-                        <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--gray-900)' }}>{scheduleYear}년 {MONTH_NAMES[scheduleMonth]}</span>
-                        <button type="button" onClick={() => { if (scheduleMonth === 11) { setScheduleMonth(0); setScheduleYear((y) => y + 1); } else setScheduleMonth((m) => m + 1); }} style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-surface)', border: '1px solid var(--border-light)', borderRadius: 'var(--r-sm)' }}>
-                            <ChevronRight size={18} />
-                        </button>
-                    </div>
-
-                    {/* 주차 선택 (몇월 며칠 ~ 며칠) */}
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '4px' }} className="scrollbar-hide">
-                        {Array.from({ length: totalWeeks }, (_, i) => {
-                            const wds = getWeekDates(scheduleYear, scheduleMonth, i);
-                            const start = wds[0];
-                            const end = wds[6];
-                            const range = `${start.getMonth() + 1}/${start.getDate()} ~ ${end.getMonth() + 1}/${end.getDate()}`;
-                            return (
-                                <button
-                                    key={i}
-                                    type="button"
-                                    onClick={() => setScheduleWeekIdx(i)}
-                                    style={{
-                                        flexShrink: 0, padding: '10px 14px', fontSize: '12px', fontWeight: 800, whiteSpace: 'nowrap',
-                                        borderRadius: '20px', border: '1px solid', cursor: 'pointer',
-                                        borderColor: scheduleWeekIdx === i ? 'var(--brand-trust)' : 'var(--border-light)',
-                                        background: scheduleWeekIdx === i ? 'var(--brand-trust)' : 'var(--bg-surface)',
-                                        color: scheduleWeekIdx === i ? 'white' : 'var(--gray-600)',
-                                    }}
-                                >
-                                    {i + 1}주 ({range})
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    <p style={{ fontSize: '11px', color: 'var(--gray-500)', marginBottom: '12px', fontWeight: 700 }}>기준: {scheduleYear}년 {MONTH_NAMES[scheduleMonth]} {scheduleWeekIdx + 1}주차 {weekRangeLabel && `(${weekRangeLabel})`}</p>
-
-                    {DAY_LABELS.map((day, dayIdx) => {
-                        const d = weekDates[dayIdx];
-                        const dateLabel = d ? `${d.getMonth() + 1}/${d.getDate()} ${day}요일` : `${day}요일`;
-                        return (
-                            <div key={day} style={{ marginBottom: '16px' }}>
-                                <h4 style={{ fontSize: '13px', fontWeight: 900, color: 'var(--gray-700)', marginBottom: '8px', paddingLeft: '4px' }}>{dateLabel}</h4>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    {slots.filter(s => s.day === day).map(slot => {
-                                        const st = statusStyle(slot.status);
-                                        return (
-                                            <div key={slot.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--bg-surface)', border: '1px solid var(--border-light)', borderRadius: 'var(--r-md)' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--gray-500)', width: '60px' }}>{slot.time}</span>
-                                                    {slot.label && <span style={{ fontSize: '11px', color: 'var(--gray-400)' }}>{slot.label}</span>}
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span style={{ background: st.bg, color: st.color, fontSize: '11px', fontWeight: 800, padding: '4px 8px', borderRadius: '12px' }}>{st.label}</span>
-                                                    {(slot.status === 'OPEN' || slot.status === 'CLOSED') && (
-                                                        <button type="button" onClick={() => toggleSlotStatus(slot.id)} style={{ padding: '4px', color: 'var(--gray-400)' }}>
-                                                            {slot.status === 'OPEN' ? <ToggleRight size={22} color="var(--brand-trust)" /> : <ToggleLeft size={22} />}
-                                                        </button>
-                                                    )}
-                                                    <button type="button" onClick={() => setEditingSlot(slot)} style={{ padding: '4px', color: 'var(--gray-400)' }}>
-                                                        <Edit3 size={16} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-    );
-
+    // ── 화면: /owner (대시보드) ────────────────────────────────
     return (
-        <div className="animate-fade-in" style={{ paddingBottom: '80px', background: 'var(--bg-page)', minHeight: '100vh' }}>
-            <Header title={isScheduleOnly ? '시간표 편집' : '파트너 콘솔'} showBack />
+        <div className="animate-fade-in" style={{ paddingBottom: 80, background: 'var(--bg-page)', minHeight: '100vh' }}>
+            <Header title="파트너 콘솔" showBack />
 
-            {isScheduleOnly ? (
-                <div style={{ padding: '16px 20px', background: 'var(--brand-primary)', color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                    <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--gray-400)', marginBottom: '4px', fontWeight: 800 }}>대관 가능 시간대</p>
-                    <h2 style={{ fontSize: '18px', fontWeight: 900 }}>에이치 스포츠 센터 반여점</h2>
-                    <p style={{ fontSize: '12px', color: 'var(--gray-300)', marginTop: '4px' }}>부산광역시 해운대구 반여동</p>
+            {/* 로딩 */}
+            {loading && (
+                <div style={{ padding: 20 }}>
+                    <div style={{ height: 100, background: 'var(--gray-200)', borderRadius: 'var(--r-md)', marginBottom: 12 }} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
+                        {[0, 1, 2].map((i) => <div key={i} style={{ height: 74, background: 'var(--gray-200)', borderRadius: 'var(--r-md)' }} />)}
+                    </div>
+                    <div style={{ height: 120, background: 'var(--gray-200)', borderRadius: 'var(--r-md)' }} />
                 </div>
-            ) : (
-                <>
-                    {/* Owner Hero */}
-                    <div style={{ padding: '28px 20px', background: 'var(--brand-primary)', color: 'white' }}>
-                        <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--gray-400)', marginBottom: '6px', fontWeight: 800 }}>체육관 운영 대시보드</p>
-                        <h2 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '4px' }}>에이치 스포츠 센터 반여점</h2>
-                        <p style={{ fontSize: '13px', color: 'var(--gray-300)' }}>부산광역시 해운대구 반여동</p>
-                    </div>
+            )}
 
-                    {/* KPI Cards */}
-                    <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <div className="card" style={{ padding: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--gray-500)', marginBottom: '8px' }}>
-                                <TrendingUp size={14} /> 금월 누적 매출
-                            </div>
-                            <div style={{ fontSize: '22px', fontWeight: 900, color: 'var(--gray-900)' }}>₩4,200,000</div>
+            {/* 에러: NO_GYM 온보딩 */}
+            {!loading && errorKind === 'NO_GYM' && (
+                <div style={{ padding: '40px 20px' }}>
+                    <div className="card" style={{ padding: 28, textAlign: 'center' }}>
+                        <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--brand-light)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                            <Building2 size={36} color="var(--brand-trust)" />
                         </div>
-                        <div className="card" style={{ padding: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--gray-500)', marginBottom: '8px' }}>
-                                <Activity size={14} /> 코트 가동률
-                            </div>
-                            <div style={{ fontSize: '22px', fontWeight: 900, color: 'var(--brand-energy)' }}>{utilisationRate}%</div>
-                        </div>
-                    </div>
-                    <div style={{ padding: '0 16px 16px' }}>
-                        <button type="button" className="btn btn-secondary" style={{ width: '100%' }} onClick={() => navigate('/owner/payment-methods')}>
-                            결제 정보 (카카오페이 링크 · 계좌) 설정
+                        <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 8 }}>아직 등록된 체육관이 없어요</h2>
+                        <p style={{ fontSize: 13, color: 'var(--gray-600)', lineHeight: 1.6, marginBottom: 20 }}>
+                            파트너 콘솔은 등록·승인 완료된 체육관이 있어야 사용할 수 있습니다.
+                            체육관 등록을 원하신다면 운영팀에 문의해 주세요.
+                        </p>
+                        <button type="button" className="btn btn-trust" style={{ width: '100%', marginBottom: 8 }} onClick={() => setContactOpen(true)}>
+                            운영팀에 체육관 등록 문의
+                        </button>
+                        <button type="button" className="btn btn-secondary" style={{ width: '100%', background: 'white' }} onClick={() => navigate('/')}>
+                            홈으로 돌아가기
                         </button>
                     </div>
+                </div>
+            )}
 
-                    {/* Tab Nav: 대시보드 전용 (시간표는 /owner/schedule) */}
-                    <div style={{ display: 'flex', borderBottom: '2px solid var(--border-light)', padding: '0 20px', background: 'var(--bg-surface)' }}>
-                        {[
-                            { id: 'overview' as const, label: '예약 현황' },
-                            { id: 'add' as const, label: '슬롯 추가' },
-                        ].map(tab => (
-                            <button
-                                key={tab.id}
-                                type="button"
-                                onClick={() => setActiveTab(tab.id)}
-                                style={{
-                                    flex: 1, padding: '14px 0', fontSize: '13px', fontWeight: 800,
-                                    color: activeTab === tab.id ? 'var(--brand-primary)' : 'var(--gray-400)',
-                                    borderBottom: activeTab === tab.id ? '2px solid var(--brand-primary)' : '2px solid transparent',
-                                    marginBottom: '-2px', background: 'transparent', transition: 'all 0.15s'
-                                }}
+            {/* 연락처 모달 (라우팅 미관여 — window.open('mailto',_blank) 버그 회피) */}
+            {contactOpen && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    onClick={() => setContactOpen(false)}
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+                >
+                    <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: 380, padding: 24, position: 'relative' }}>
+                        <button type="button" onClick={() => setContactOpen(false)} style={{ position: 'absolute', top: 12, right: 12, background: 'none', color: 'var(--gray-500)' }} aria-label="닫기">
+                            <X size={20} />
+                        </button>
+                        <h3 style={{ fontSize: 17, fontWeight: 900, marginBottom: 6 }}>체육관 등록 문의</h3>
+                        <p style={{ fontSize: 12, color: 'var(--gray-600)', marginBottom: 18, lineHeight: 1.6 }}>
+                            아래 연락처로 사업자 정보, 체육관 주소, 운영 시간, 담당자 이름·연락처를 보내주시면 영업일 기준 1~2일 내 답변드립니다.
+                        </p>
+
+                        {/* 이메일 */}
+                        <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--r-md)', padding: 12, marginBottom: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', marginBottom: 6 }}>
+                                <Mail size={12} /> 이메일
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--gray-900)', marginBottom: 8, wordBreak: 'break-all' }}>
+                                {PARTNER_EMAIL}
+                            </div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    style={{ flex: 1, height: 36, fontSize: 12, background: 'white' }}
+                                    onClick={() => copyToClipboard(PARTNER_EMAIL, 'email')}
+                                >
+                                    {copiedKey === 'email' ? <><Check size={13} /> 복사됨</> : <><Copy size={13} /> 주소 복사</>}
+                                </button>
+                                <a
+                                    href={`mailto:${PARTNER_EMAIL}?subject=${encodeURIComponent('[Basket] 체육관 등록 문의')}`}
+                                    className="btn btn-trust"
+                                    style={{ flex: 1, height: 36, fontSize: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4, textDecoration: 'none' }}
+                                >
+                                    <Mail size={13} /> 메일로 열기
+                                </a>
+                            </div>
+                        </div>
+
+                        {/* 카카오 오픈채팅 */}
+                        <div style={{ border: '1px solid var(--border-light)', borderRadius: 'var(--r-md)', padding: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', marginBottom: 6 }}>
+                                <MessageSquare size={12} /> 카카오톡 오픈채팅
+                            </div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--gray-900)', marginBottom: 8, wordBreak: 'break-all' }}>
+                                {PARTNER_KAKAO}
+                            </div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    style={{ flex: 1, height: 36, fontSize: 12, background: 'white' }}
+                                    onClick={() => copyToClipboard(PARTNER_KAKAO, 'kakao')}
+                                >
+                                    {copiedKey === 'kakao' ? <><Check size={13} /> 복사됨</> : <><Copy size={13} /> 링크 복사</>}
+                                </button>
+                                <a
+                                    href={PARTNER_KAKAO}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn btn-trust"
+                                    style={{ flex: 1, height: 36, fontSize: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4, textDecoration: 'none' }}
+                                >
+                                    <MessageSquare size={13} /> 채팅 열기
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 에러: GENERIC */}
+            {!loading && errorKind === 'GENERIC' && (
+                <div style={{ padding: '40px 20px' }}>
+                    <div className="card" style={{ padding: 24, textAlign: 'center' }}>
+                        <AlertCircle size={40} color="var(--status-error)" style={{ margin: '0 auto 12px' }} />
+                        <p style={{ fontWeight: 700, marginBottom: 16 }}>대시보드를 불러오지 못했습니다.</p>
+                        <button type="button" className="btn btn-primary" onClick={() => loadDashboard(selectedGymId)}>다시 시도</button>
+                    </div>
+                </div>
+            )}
+
+            {/* 정상 */}
+            {!loading && !errorKind && dashboard && (
+                <>
+                    {/* Hero */}
+                    <div style={{ padding: '28px 20px', background: 'var(--brand-primary)', color: 'white' }}>
+                        <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--gray-400)', marginBottom: 6, fontWeight: 800 }}>체육관 운영 대시보드</p>
+                        <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>{dashboard.ownerGymProfile.name}</h2>
+                        <p style={{ fontSize: 13, color: 'var(--gray-300)' }}>{dashboard.ownerGymProfile.district}</p>
+                    </div>
+
+                    {/* 체육관 선택 (다중 보유 시) */}
+                    {dashboard.ownedGyms && dashboard.ownedGyms.length > 1 && (
+                        <div style={{ padding: '12px 16px', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-light)' }}>
+                            <label className="input-label" style={{ fontSize: 11 }}>운영 체육관 전환</label>
+                            <select
+                                className="input-field"
+                                value={selectedGymId ?? dashboard.ownerGymProfile.gymPlaceId}
+                                onChange={(e) => handleSwitchGym(e.target.value)}
                             >
-                                {tab.label}
+                                {dashboard.ownedGyms.map((g: OwnedGymBrief) => (
+                                    <option key={g.gymPlaceId} value={g.gymPlaceId}>
+                                        {g.name} ({g.district})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* KPI Cards (서버 kpis 를 그대로 렌더링) */}
+                    <div style={{ padding: 16, display: 'grid', gridTemplateColumns: dashboard.kpis.length === 3 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 10 }}>
+                        {dashboard.kpis.map((kpi) => (
+                            <button
+                                key={kpi.label}
+                                type="button"
+                                className="card"
+                                onClick={() => handleKpiClick(kpi.label)}
+                                style={{ padding: 14, textAlign: 'left', cursor: 'pointer' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', marginBottom: 8 }}>
+                                    {KPI_ICON[kpi.label] ?? <Activity size={14} />} {kpi.label}
+                                </div>
+                                <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--gray-900)' }}>{kpi.value}</div>
                             </button>
                         ))}
                     </div>
-                </>
-            )}
 
-            {/* Tab: Overview (콘솔만) */}
-            {!isScheduleOnly && activeTab === 'overview' && (
-                <div style={{ padding: '20px' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--gray-700)', marginBottom: '16px' }}>최근 예약 접수 내역</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {ownerData.view.reservationsMock.map((res: any) => (
-                            <div key={res.id} className="card" style={{ padding: '16px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                    <span style={{ fontSize: '15px', fontWeight: 800 }}>{res.date} • {res.time}</span>
-                                    <span className="badge badge-black">확정</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--gray-600)' }}>
-                                    <span>예약자: {res.booker}</span>
-                                    <span style={{ fontWeight: 700, color: 'var(--gray-900)' }}>{(res.price || 120000).toLocaleString()}원</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {isScheduleOnly && scheduleSection}
-
-            {/* Tab: Add Slot */}
-            {!isScheduleOnly && activeTab === 'add' && (
-                <div style={{ padding: '20px' }}>
-                    <div className="card" style={{ padding: '24px' }}>
-                        <h3 style={{ fontSize: '16px', fontWeight: 900, marginBottom: '20px' }}>새 시간 슬롯 추가</h3>
-                        <p style={{ fontSize: '13px', color: 'var(--gray-500)', fontWeight: 600, lineHeight: 1.6, background: 'var(--gray-50)', padding: '16px', borderRadius: 'var(--r-md)', border: '1px solid var(--border-light)' }}>
-                            ⚙️ 시간표 편집 탭에서 기존 슬롯 상태를 변경하거나, 백엔드 연동 후 직접 슬롯을 추가할 수 있습니다.<br /><br />
-                            시간표는 <strong>시간표 편집</strong> 메뉴에서 년·월·주 단위로 수정합니다.
-                        </p>
-                        <button type="button" className="btn btn-trust" style={{ width: '100%', marginTop: '16px' }} onClick={() => navigate('/owner/schedule')}>
-                            시간표 편집 화면으로 이동
+                    {/* 빠른 액션 */}
+                    <div style={{ padding: '0 16px 8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <button type="button" className="btn btn-trust" style={{ height: 46, fontSize: 13 }} onClick={() => navigate('/owner/reservations')}>
+                            <CalendarCheck size={16} /> 예약 관리
                         </button>
-                        <button type="button" className="btn btn-energy" style={{ width: '100%', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                            <Plus size={18} /> 새 슬롯 등록 (곧 출시)
+                        <button type="button" className="btn btn-secondary" style={{ height: 46, fontSize: 13, background: 'white' }} onClick={() => navigate('/owner/schedule')}>
+                            <Calendar size={16} /> 시간표 편집
+                        </button>
+                        <button type="button" className="btn btn-secondary" style={{ height: 46, fontSize: 13, background: 'white' }} onClick={() => navigate('/owner/pricing-policy')}>
+                            <DollarSign size={16} /> 가격 정책
+                        </button>
+                        <button type="button" className="btn btn-secondary" style={{ height: 46, fontSize: 13, background: 'white' }} onClick={() => navigate('/owner/payment-methods')}>
+                            <Wallet size={16} /> 결제 정보
                         </button>
                     </div>
-                </div>
-            )}
 
-            {/* Edit Modal */}
-            {editingSlot && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                    <div style={{ width: '100%', maxWidth: 'var(--max-w)', background: 'white', borderTopLeftRadius: '20px', borderTopRightRadius: '20px', padding: '28px 24px' }}>
-                        <h3 style={{ fontSize: '18px', fontWeight: 900, marginBottom: '4px' }}>{editingSlot.day}요일 {editingSlot.time}</h3>
-                        <p style={{ fontSize: '13px', color: 'var(--gray-500)', marginBottom: '24px' }}>슬롯 상태를 수정하세요</p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {(['OPEN', 'CLOSED', 'LESSON', 'REGULAR'] as SlotStatus[]).map(s => {
-                                const st = statusStyle(s);
-                                return (
-                                    <button
-                                        key={s}
-                                        onClick={() => updateSlot({ ...editingSlot, status: s })}
-                                        style={{
-                                            padding: '14px', borderRadius: 'var(--r-md)', fontWeight: 800, fontSize: '15px',
-                                            background: editingSlot.status === s ? st.bg : 'var(--gray-50)',
-                                            color: editingSlot.status === s ? st.color : 'var(--gray-700)',
-                                            border: `1.5px solid ${editingSlot.status === s ? st.color : 'var(--border-light)'}`,
-                                            cursor: 'pointer', textAlign: 'left'
-                                        }}
-                                    >
-                                        {st.label} {editingSlot.status === s ? '✓' : ''}
-                                    </button>
-                                );
-                            })}
+                    {/* 최근 예약 */}
+                    <div style={{ padding: 20 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--gray-700)' }}>최근 예약 접수</h3>
+                            <button type="button" onClick={() => navigate('/owner/reservations')} style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand-trust)', background: 'none' }}>
+                                전체 보기 <ChevronRight size={12} style={{ verticalAlign: 'middle' }} />
+                            </button>
                         </div>
-                        <button className="btn btn-secondary" onClick={() => setEditingSlot(null)} style={{ width: '100%', marginTop: '16px' }}>취소</button>
+
+                        {dashboard.recentReservations.length === 0 ? (
+                            <div className="card" style={{ padding: 24, textAlign: 'center', color: 'var(--gray-500)' }}>
+                                아직 접수된 예약이 없습니다.
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {dashboard.recentReservations.map((r) => {
+                                    const meta = STATUS_BADGE[r.status] ?? { label: r.status, className: 'badge badge-gray' };
+                                    return (
+                                        <button
+                                            key={r.id}
+                                            type="button"
+                                            className="card"
+                                            onClick={() => navigate('/owner/reservations')}
+                                            style={{ padding: 14, textAlign: 'left', cursor: 'pointer' }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                <span style={{ fontSize: 14, fontWeight: 800 }}>{r.bookerName}</span>
+                                                <span className={meta.className}>{meta.label}</span>
+                                            </div>
+                                            <div style={{ fontSize: 12, color: 'var(--gray-600)', fontWeight: 600 }}>{r.time}</div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
-                </div>
+                </>
             )}
         </div>
     );

@@ -1,109 +1,143 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from '../components/Header';
-import { useMock, type Application } from '../store/MockProvider';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import checkoutData from '../data/routes/checkout.json';
-import { ExternalLink, ImagePlus } from 'lucide-react';
+import { useMock } from '../store/MockProvider';
+import { useAuth } from '../context/AuthContext';
+import { reservationsApi } from '../lib/api';
 
-type TransferMethod = { id: string; label: string };
-
+/**
+ * Checkout — 예약 "생성" 화면
+ * - 이전 페이지(GymDetail)에서 URL 파라미터로 슬롯 정보를 받는다.
+ * - 사용자 실명/연락처/팀명/인원을 받아 POST /reservations 로 예약을 만든다.
+ * - 성공 시 /success 로 이동하며 reservationId 전달.
+ * - 계좌/카카오페이 안내와 송금 완료 처리는 /success 에서 수행 (백엔드 상태머신 AWAITING_TRANSFER → TRANSFER_SUBMITTED).
+ */
 export const Checkout: React.FC = () => {
-    const { view } = checkoutData;
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { mockMode, addApplication, logEvent } = useMock();
+    const { logEvent } = useMock();
+    const { user } = useAuth();
 
-    const type = (searchParams.get('type') || 'rent') as 'rent' | 'pickup';
-    const refId = searchParams.get('refId') || 'unknown';
-    const price = searchParams.get('price') || '0';
-    const title = searchParams.get('title') || '결제 상품';
-    const headcount = searchParams.get('headcount') || '1';
+    // 이전 화면(GymDetail)에서 넘긴 슬롯 정보
+    const gymId = searchParams.get('gymId');
+    const slotId = searchParams.get('slotId');
+    const date = searchParams.get('date');
     const rentStart = searchParams.get('rentStart') || '';
     const rentEnd = searchParams.get('rentEnd') || '';
-    const pickupStart = searchParams.get('pickupStart') || '';
-    const pickupEnd = searchParams.get('pickupEnd') || '';
+    const price = searchParams.get('price') || '0';
+    const title = decodeURIComponent(searchParams.get('title') || '결제 상품');
+    const headcountParam = parseInt(searchParams.get('headcount') || '1', 10);
 
-    const [name, setName] = useState('');
-    const [phone, setPhone] = useState('');
-    const [transferMethod, setTransferMethod] = useState(view.transferMethods[0]?.id ?? 'KAKAO');
-    const [proofFileName, setProofFileName] = useState<string | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    // 폼 상태
+    const [bookerName, setBookerName] = useState(user?.displayName ?? '');
+    const [phone, setPhone] = useState(user?.phone ?? '');
+    const [teamName, setTeamName] = useState('');
+    const [memo, setMemo] = useState('');
+    const [headcount, setHeadcount] = useState(headcountParam);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
-    const isPhoneValid = /^[0-9-]{10,13}$/.test(phone);
-    const formValid = name.trim().length >= 2 && isPhoneValid;
+    // AuthContext 가 늦게 채워질 때 대비
+    useEffect(() => {
+        if (user) {
+            if (!bookerName) setBookerName(user.displayName);
+            if (!phone && user.phone) setPhone(user.phone);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user]);
 
-    const dt = view.directTransfer;
+    // 슬롯 정보 누락 가드
+    const missingSlot = !gymId || !slotId;
 
-    const handleSubmit = () => {
-        if (!formValid) return;
+    const normalizedPhone = phone.replace(/-/g, '');
+    const isPhoneValid = /^[0-9]{10,11}$/.test(normalizedPhone);
+    const formValid = bookerName.trim().length >= 2 && isPhoneValid && teamName.trim().length >= 1 && headcount >= 1;
 
+    const handleSubmit = async () => {
+        if (!formValid || !gymId || !slotId) return;
         setIsSubmitting(true);
         setErrorMsg('');
-        logEvent('SUBMIT_PAYMENT', {
-            type,
-            refId,
-            transferMethod,
-            hasProof: !!proofFileName,
-        });
-
-        setTimeout(() => {
+        logEvent('SUBMIT_RESERVATION', { gymId, slotId, headcount });
+        try {
+            const res = await reservationsApi.create({
+                gymId,
+                slotId,
+                teamName: teamName.trim(),
+                bookerName: bookerName.trim(),
+                phone: normalizedPhone,
+                peopleCount: headcount,
+                memo: memo.trim() || undefined,
+                // 중복 제출/재시도 보호용 idempotency key
+                idempotencyKey: crypto.randomUUID(),
+            });
+            logEvent('RESERVATION_CREATED', {
+                reservationId: res.reservationId,
+                finalPrice: res.pricingSnapshot.finalPrice,
+            });
+            const q = new URLSearchParams({
+                reservationId: res.reservationId,
+                title: encodeURIComponent(title),
+            });
+            if (gymId) q.set('gymId', gymId);
+            navigate(`/success?${q.toString()}`, { replace: true });
+        } catch (e: unknown) {
+            const err = e as { response?: { status?: number; data?: { error?: { code?: string; message?: string } } } };
+            const status = err?.response?.status;
+            const code = err?.response?.data?.error?.code;
+            const msg = err?.response?.data?.error?.message;
+            if (status === 401) setErrorMsg('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+            else if (code === 'SLOT_NOT_RESERVABLE') setErrorMsg('이 슬롯은 이미 예약되었거나 예약 불가 상태입니다.');
+            else if (code === 'DUPLICATE_RESERVATION') setErrorMsg('같은 시간에 이미 예약이 있습니다.');
+            else setErrorMsg(msg ?? '예약 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+            logEvent('RESERVATION_FAIL', { status, code });
+        } finally {
             setIsSubmitting(false);
-
-            if (mockMode === 'error') {
-                logEvent('PAYMENT_FAIL', { reason: 'mock_mode_error' });
-                setErrorMsg('요청 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.');
-                return;
-            }
-
-            logEvent('PAYMENT_SUCCESS', { type, refId });
-
-            const newApp: Application = {
-                id: `TX_${Math.floor(Math.random() * 1000000)}`,
-                type: type === 'pickup' ? 'pickup' : 'rent',
-                title: decodeURIComponent(title),
-                date: new Date().toISOString(),
-                price: parseInt(price, 10),
-                transferMethod: transferMethod === 'KAKAO' ? 'KAKAO' : 'BANK',
-                proofFileName: proofFileName,
-                transferStatus: 'PENDING',
-                ...(type === 'rent' && rentStart && rentEnd
-                    ? { startTime: rentStart, endTime: rentEnd }
-                    : type === 'pickup' && pickupStart && pickupEnd
-                        ? { startTime: pickupStart, endTime: pickupEnd }
-                        : {}),
-            };
-
-            addApplication(newApp);
-            navigate(`/success?type=${type}&refId=${refId}&price=${price}&title=${encodeURIComponent(title)}`);
-        }, 1200);
+        }
     };
+
+    if (missingSlot) {
+        return (
+            <div style={{ minHeight: '100vh', background: 'var(--bg-page)' }}>
+                <Header title="예약 생성" showBack />
+                <div style={{ padding: 48, textAlign: 'center' }}>
+                    <p style={{ fontWeight: 700, color: 'var(--gray-900)', marginBottom: 16 }}>
+                        슬롯 정보가 없습니다. 체육관 상세에서 다시 진입해 주세요.
+                    </p>
+                    <button type="button" className="btn btn-primary" onClick={() => navigate('/')}>홈으로</button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="animate-fade-in" style={{ paddingBottom: '140px', background: 'var(--bg-page)', minHeight: '100vh' }}>
-            <Header title="직접 송금 안내" showBack />
+            <Header title="예약 생성" showBack />
 
             <div style={{ background: 'var(--brand-primary)', color: 'white', padding: '32px 20px', marginBottom: '16px' }}>
-                <span className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: 'white', marginBottom: '16px' }}>
-                    {type === 'rent' ? '단독 대관' : '예약'}
-                </span>
-                <h2 style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.3, marginBottom: '24px' }}>
-                    {decodeURIComponent(title)}
-                </h2>
+                <span className="badge" style={{ background: 'rgba(255,255,255,0.15)', color: 'white', marginBottom: '16px' }}>단독 대관</span>
+                <h2 style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.3, marginBottom: '24px' }}>{title}</h2>
 
                 <div style={{ background: 'rgba(255,255,255,0.1)', padding: '16px', borderRadius: 'var(--r-sm)' }}>
+                    {date && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <span style={{ fontSize: '13px', opacity: 0.8, fontWeight: 600 }}>일시</span>
+                            <span style={{ fontSize: '13px', fontWeight: 700 }}>{date} {rentStart}~{rentEnd}</span>
+                        </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                         <span style={{ fontSize: '13px', opacity: 0.8, fontWeight: 600 }}>입실 인원</span>
                         <span style={{ fontSize: '13px', fontWeight: 700 }}>{headcount}명</span>
                     </div>
                     <div className="divider" style={{ background: 'rgba(255,255,255,0.2)', margin: '12px 0' }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '14px', fontWeight: 700 }}>송금하실 금액</span>
+                        <span style={{ fontSize: '14px', fontWeight: 700 }}>예상 송금 금액</span>
                         <span style={{ fontSize: '24px', fontWeight: 900 }}>
                             {parseInt(price, 10).toLocaleString()} <span style={{ fontSize: '16px' }}>₩</span>
                         </span>
                     </div>
+                    <p style={{ fontSize: 11, opacity: 0.7, marginTop: 8 }}>
+                        ※ 최종 금액은 서버가 정한 정책대로 재계산됩니다 (할인 자동 적용).
+                    </p>
                 </div>
             </div>
 
@@ -117,9 +151,9 @@ export const Checkout: React.FC = () => {
                             <input
                                 type="text"
                                 className="input-field"
-                                placeholder="예약자 이름을 입력하세요"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
+                                placeholder="예약자 이름"
+                                value={bookerName}
+                                onChange={(e) => setBookerName(e.target.value)}
                                 disabled={isSubmitting}
                             />
                         </div>
@@ -140,114 +174,42 @@ export const Checkout: React.FC = () => {
                                 </span>
                             )}
                         </div>
+                        <div>
+                            <label className="input-label">팀/단체명</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                placeholder="예: 해운대 농구클럽"
+                                value={teamName}
+                                onChange={(e) => setTeamName(e.target.value)}
+                                disabled={isSubmitting}
+                            />
+                        </div>
+                        <div>
+                            <label className="input-label">입실 인원</label>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid var(--border-medium)', borderRadius: 'var(--r-sm)', height: 40, overflow: 'hidden' }}>
+                                <button type="button" onClick={() => setHeadcount((v) => Math.max(1, v - 1))} disabled={isSubmitting} style={{ width: 40, height: '100%', fontWeight: 700, fontSize: 18, background: 'var(--bg-page)' }}>-</button>
+                                <span style={{ width: 60, textAlign: 'center', fontWeight: 800 }}>{headcount}명</span>
+                                <button type="button" onClick={() => setHeadcount((v) => Math.min(30, v + 1))} disabled={isSubmitting} style={{ width: 40, height: '100%', fontWeight: 900, fontSize: 18, background: 'var(--brand-primary)', color: 'white' }}>+</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="input-label">메모 (선택)</label>
+                            <textarea
+                                className="input-field"
+                                placeholder="특이사항이 있으면 남겨주세요"
+                                value={memo}
+                                onChange={(e) => setMemo(e.target.value)}
+                                disabled={isSubmitting}
+                                style={{ minHeight: 60 }}
+                            />
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <div style={{ padding: '0 20px', marginBottom: '20px' }}>
-                <h3 style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--gray-500)', marginBottom: '10px', paddingLeft: '4px' }}>송금 수단 선택</h3>
-                <p style={{ fontSize: '13px', color: 'var(--gray-600)', marginBottom: '12px', lineHeight: 1.5 }}>{view.transferNotice}</p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                    {view.transferMethods.map((m) => {
-                        const isSelected = transferMethod === m.id;
-                        return (
-                            <button
-                                key={m.id}
-                                type="button"
-                                onClick={() => !isSubmitting && setTransferMethod(m.id)}
-                                className="card"
-                                style={{
-                                    padding: '16px 20px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    border: isSelected ? '2px solid var(--brand-trust)' : '1px solid var(--border-light)',
-                                    background: isSelected ? 'var(--brand-light)' : 'var(--bg-surface)',
-                                    textAlign: 'left',
-                                    width: '100%',
-                                }}
-                            >
-                                <span style={{ fontSize: '15px', fontWeight: 800, color: isSelected ? 'var(--brand-trust)' : 'var(--gray-700)' }}>{m.label}</span>
-                                {isSelected && <div style={{ width: '10px', height: '10px', background: 'var(--brand-trust)', borderRadius: '50%' }} />}
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {transferMethod === 'KAKAO' && (
-                    <div className="card" style={{ padding: '20px', background: 'var(--brand-light)', borderColor: '#BFDBFE' }}>
-                        <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--gray-500)', marginBottom: '8px' }}>카카오페이 송금</div>
-                        <a
-                            href={dt.kakaoPayLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                fontSize: '15px',
-                                fontWeight: 800,
-                                color: 'var(--brand-trust)',
-                                wordBreak: 'break-all',
-                            }}
-                        >
-                            송금 링크 열기 <ExternalLink size={18} />
-                        </a>
-                        <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '10px' }}>{dt.kakaoPayLink}</p>
-                    </div>
-                )}
-
-                {transferMethod === 'BANK' && (
-                    <div className="card" style={{ padding: '20px', background: 'var(--gray-50)' }}>
-                        <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--gray-500)', marginBottom: '8px' }}>계좌 정보</div>
-                        <p style={{ fontSize: '16px', fontWeight: 800, color: 'var(--gray-900)', marginBottom: '4px' }}>
-                            {dt.bankName} {dt.accountNumber}
-                        </p>
-                        <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-600)' }}>예금주 {dt.accountHolder}</p>
-                    </div>
-                )}
-            </div>
-
-            <div style={{ padding: '0 20px', marginBottom: '24px' }}>
-                <label className="input-label">{view.screenshotLabel ?? '송금 스크린샷 첨부'}</label>
-                <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginBottom: '10px' }}>{view.screenshotHint}</p>
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', border: 0 }}
-                    onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        setProofFileName(f ? f.name : null);
-                    }}
-                />
-                <button
-                    type="button"
-                    className="card"
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
-                        width: '100%',
-                        padding: '20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '10px',
-                        cursor: 'pointer',
-                        borderStyle: 'dashed',
-                        background: 'var(--bg-surface)',
-                    }}
-                >
-                    <ImagePlus size={22} color="var(--gray-400)" />
-                    <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--gray-600)' }}>
-                        {proofFileName ? proofFileName : '이미지 선택'}
-                    </span>
-                </button>
             </div>
 
             {errorMsg && (
-                <div style={{ margin: '0 20px 16px', color: 'var(--status-error)', fontSize: '13px', fontWeight: 700, padding: '12px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 'var(--r-sm)' }}>
+                <div style={{ margin: '0 20px 16px', color: 'var(--status-error)', fontSize: 13, fontWeight: 700, padding: 12, background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 'var(--r-sm)' }}>
                     {errorMsg}
                 </div>
             )}
@@ -259,7 +221,7 @@ export const Checkout: React.FC = () => {
                     className="btn btn-trust"
                     style={{ width: '100%', height: '56px', fontSize: '16px' }}
                 >
-                    {isSubmitting ? '처리 중...' : '예약·송금 확인 요청'}
+                    {isSubmitting ? '예약 요청 중...' : '예약 요청 (송금 대기 생성)'}
                 </button>
             </div>
         </div>

@@ -32,23 +32,38 @@ function unwrap<T>(res: AxiosResponse<{ data: T }>): T {
 }
 
 // ── Auth ──────────────────────────────────────────────
+export interface AuthUserDto {
+  id: string;
+  email: string;
+  role: "USER" | "OWNER" | "ADMIN" | "ORGANIZER" | "OPS";
+  display_name: string;
+  phone: string | null;
+  notification_enabled: boolean;
+}
+
+export interface TokenPairDto {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
 export const authApi = {
   login: (email: string, password: string) =>
-    client.post<{ data: { access_token: string; refresh_token: string; token_type: string } }>(
-      "/auth/login",
-      { email, password }
-    ).then(unwrap),
+    client.post<{ data: TokenPairDto }>("/auth/login", { email, password }).then(unwrap),
 
-  signup: (email: string, password: string, display_name: string, phone?: string) =>
-    client.post<{ data: { access_token: string; refresh_token: string } }>(
-      "/auth/signup",
-      { email, password, display_name, phone }
-    ).then(unwrap),
+  // 백엔드는 UserOut(회원 정보)만 반환하며 토큰은 주지 않는다.
+  // 가입 직후 자동 로그인이 필요하면 호출부에서 authApi.login을 이어 호출할 것.
+  // role 은 "USER" 또는 "OWNER" 만 허용 (백엔드 Literal 타입과 동일).
+  signup: (args: {
+    email: string;
+    password: string;
+    display_name: string;
+    phone?: string;
+    role?: "USER" | "OWNER";
+  }) =>
+    client.post<{ data: AuthUserDto }>("/auth/signup", args).then(unwrap),
 
-  me: () =>
-    client.get<{ data: { id: string; email: string; role: string; display_name: string } }>(
-      "/auth/me"
-    ).then(unwrap),
+  me: () => client.get<{ data: AuthUserDto }>("/auth/me").then(unwrap),
 };
 
 // ── Places ────────────────────────────────────────────
@@ -95,10 +110,28 @@ export const gymsApi = {
   repeatRules: (gymId: string) =>
     client.get<{ data: { repeatRules: RepeatRule[] } }>(`/gyms/${gymId}/repeat-rules`).then(unwrap),
 
+  createRepeatRule: (gymId: string, body: { type: string; label: string; rruleSpec: string; enabled?: boolean }) =>
+    client.post<{ data: { id: string; label: string; type: string } }>(`/gyms/${gymId}/repeat-rules`, body).then(unwrap),
+
+  patchRepeatRule: (gymId: string, ruleId: string, body: Partial<{ label: string; rruleSpec: string; enabled: boolean }>) =>
+    client.patch<{ data: { id: string; enabled: boolean } }>(`/gyms/${gymId}/repeat-rules/${ruleId}`, body).then(unwrap),
+
+  deleteRepeatRule: (gymId: string, ruleId: string) =>
+    client.delete(`/gyms/${gymId}/repeat-rules/${ruleId}`).then(unwrap),
+
   exceptionRules: (gymId: string) =>
     client.get<{ data: { exceptionRules: ExceptionRule[] } }>(`/gyms/${gymId}/exception-rules`).then(unwrap),
 
-  patchSlot: (gymId: string, date: string, startTime: string, body: { status: string; price?: number }) =>
+  createExceptionRule: (gymId: string, body: { label: string; exceptionDate: string; enabled?: boolean }) =>
+    client.post<{ data: { id: string; label: string } }>(`/gyms/${gymId}/exception-rules`, body).then(unwrap),
+
+  patchExceptionRule: (gymId: string, ruleId: string, body: Partial<{ label: string; enabled: boolean }>) =>
+    client.patch<{ data: { id: string; enabled: boolean } }>(`/gyms/${gymId}/exception-rules/${ruleId}`, body).then(unwrap),
+
+  deleteExceptionRule: (gymId: string, ruleId: string) =>
+    client.delete(`/gyms/${gymId}/exception-rules/${ruleId}`).then(unwrap),
+
+  patchSlot: (gymId: string, date: string, startTime: string, body: { status: string; price?: number | null }) =>
     client.patch(`/gyms/${gymId}/slots/${date}/${startTime}`, body).then(unwrap),
 };
 
@@ -158,10 +191,10 @@ export const reservationsApi = {
 
 // ── Owner ─────────────────────────────────────────────
 export const ownerApi = {
-  dashboard: () =>
-    client.get<{ data: OwnerDashboard }>("/owners/me/dashboard").then(unwrap),
+  dashboard: (params?: { gym_id?: string }) =>
+    client.get<{ data: OwnerDashboard }>("/owners/me/dashboard", { params }).then(unwrap),
 
-  reservations: (params?: { status?: string }) =>
+  reservations: (params?: { status?: string; gym_id?: string }) =>
     client.get<{ data: { rows: OwnerReservationRow[] } }>("/owners/me/reservations", { params }).then(unwrap),
 
   markChecked: (reservationId: string) =>
@@ -178,6 +211,9 @@ export const ownerApi = {
 export const adminApi = {
   reviews: (params?: { status?: string }) =>
     client.get<{ data: { reviewRows: AdminReviewRow[] } }>("/admin/reviews", { params }).then(unwrap),
+
+  reviewPhotos: (reviewId: string) =>
+    client.get<{ data: { photos: { id: string; url: string }[] } }>(`/admin/reviews/${reviewId}/photos`).then(unwrap),
 
   hideReview: (reviewId: string) =>
     client.post(`/admin/reviews/${reviewId}/hide`).then(unwrap),
@@ -225,11 +261,21 @@ export interface PricingPolicy {
   sameDayOnly?: boolean;
 }
 
+export interface CalendarSlot {
+  id: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  endTime: string;
+  time: string; // "09:00 ~ 10:00" (표시용)
+  status: "AVAILABLE" | "CLASS" | "REGULAR" | "CLOSED" | string;
+  price: number | null;
+}
+
 export interface CalendarData {
   monthLabel: string;
   selectedDate?: string;
   legend: { status: string; label: string }[];
-  slots: { id: string; time: string; status: string; price: number | null }[];
+  slots: CalendarSlot[];
 }
 
 export interface PaymentMethods {
@@ -312,6 +358,7 @@ export interface TimelineItem {
 
 export interface ReservationSummary {
   id: string;
+  gymPlaceId: string;
   gymName: string;
   date: string;
   time: string;
@@ -319,22 +366,33 @@ export interface ReservationSummary {
   finalPrice: number;
 }
 
+export interface OwnedGymBrief {
+  gymPlaceId: string;
+  name: string;
+  district: string;
+}
+
 export interface OwnerDashboard {
   ownerGymProfile: { gymPlaceId: string; name: string; district: string };
+  ownedGyms?: OwnedGymBrief[];
   kpis: { label: string; value: number }[];
   recentReservations: { id: string; bookerName: string; time: string; status: string }[];
 }
 
 export interface OwnerReservationRow {
   id: string;
+  gymPlaceId: string;
+  gymName: string;
   bookerName: string;
   teamName: string;
+  phone: string;
   date: string;
   time: string;
   headcount: number;
   finalPrice: number;
   discountApplied: boolean;
   status: string;
+  requestedAt: string | null;
 }
 
 export interface AdminReviewRow {

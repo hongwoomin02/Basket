@@ -1,17 +1,36 @@
+import logging
 import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import settings
+from app.middleware.security import SecurityHeadersMiddleware
+from app.rate_limit import limiter
 from app.routers import admin, auth, gyms, outdoors, owner, places, reservations
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 시작 시 필요한 초기화 작업
+    # ── Phase 5 보안: 프로덕션 기동 시 민감 설정 검증 ──────────────
+    if settings.environment == "production":
+        if settings.jwt_secret_key in ("change-me", "", "secret"):
+            raise RuntimeError(
+                "JWT_SECRET_KEY is not set for production. "
+                "Refusing to start. Generate a strong random secret and set it via env."
+            )
+        if "*" in settings.cors_origins or any("localhost" in o for o in settings.cors_origins):
+            logger.warning(
+                "CORS origins include localhost/wildcard in production: %s",
+                settings.cors_origins,
+            )
     yield
     # 종료 시 정리 작업
 
@@ -21,6 +40,17 @@ app = FastAPI(
     description="부산 농구 공간 플랫폼 API",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+# ─── Rate Limiter ─────────────────────────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# ─── 보안 헤더 ────────────────────────────────────────────────────────────
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    production=(settings.environment == "production"),
 )
 
 # ─── CORS ──────────────────────────────────────────────────────────────────

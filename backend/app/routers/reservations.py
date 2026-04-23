@@ -79,6 +79,8 @@ async def create_reservation(
         **pricing,
     )
     db.add(reservation)
+    # 자식 타임라인이 reservation.id를 FK로 참조하므로 부모를 먼저 flush하여 PK 확정
+    await db.flush()
 
     # 타임라인 초기 항목
     for key, label in [("requested", "신청됨"), ("waiting", "송금 대기")]:
@@ -94,7 +96,12 @@ async def create_reservation(
         data={
             "reservationId": str(reservation.id),
             "status": reservation.status,
-            "pricingSnapshot": pricing,
+            "pricingSnapshot": {
+                "basePrice": pricing["base_price"],
+                "discountApplied": pricing["discount_applied"],
+                "discountAmount": pricing["discount_amount"],
+                "finalPrice": pricing["final_price"],
+            },
         }
     )
 
@@ -174,24 +181,27 @@ async def my_reservations(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    from app.models.place import Place
     result = await db.execute(
-        select(Reservation)
+        select(Reservation, Place.name)
+        .join(Place, Place.id == Reservation.gym_place_id)
         .where(Reservation.user_id == current_user.id)
         .order_by(Reservation.requested_at.desc())
     )
-    reservations = result.scalars().all()
+    rows = result.all()
     return Response(
         data={
             "reservations": [
                 {
                     "id": str(r.id),
                     "gymPlaceId": str(r.gym_place_id),
+                    "gymName": gym_name,
                     "date": r.date.isoformat(),
                     "time": r.time_label,
                     "status": r.status,
                     "finalPrice": r.final_price,
                 }
-                for r in reservations
+                for (r, gym_name) in rows
             ]
         }
     )

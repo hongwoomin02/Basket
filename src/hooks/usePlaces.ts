@@ -6,6 +6,9 @@ export interface PlaceCardData {
   routeType: "gym" | "outdoor";
   name: string;
   district: string;
+  address: string;
+  lat: number | null;
+  lng: number | null;
   placeType: "실내 체육관" | "야외 농구장";
   reservable: boolean;
   discountable: boolean;
@@ -24,6 +27,9 @@ function toCardData(p: PlaceItem): PlaceCardData {
     routeType: isGym ? "gym" : "outdoor",
     name: p.name,
     district: p.district,
+    address: p.address ?? "",
+    lat: p.lat ?? null,
+    lng: p.lng ?? null,
     placeType: isGym ? "실내 체육관" : "야외 농구장",
     reservable: false,
     discountable: false,
