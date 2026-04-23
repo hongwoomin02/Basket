@@ -34,11 +34,12 @@ export const RequireAuth: React.FC = () => {
 };
 
 interface RequireRoleProps {
-    roles: Array<'USER' | 'OWNER' | 'ADMIN' | 'ORGANIZER' | 'OPS'>;
+    roles: Array<'USER' | 'OWNER' | 'ADMIN' | 'ORGANIZER' | 'OPS' | 'PENDING_OWNER'>;
 }
 
 /**
  * 특정 역할만 접근 가능. 미로그인은 /login, 권한 부족은 /access-denied 로 리다이렉트.
+ * PENDING_OWNER 사용자가 OWNER 권한이 필요한 페이지에 진입하면 /owner/pending 안내 페이지로 보낸다.
  * 주의: 프론트 가드는 UX 용이며 최종 권한 검증은 백엔드(JWT + require_role)가 수행한다.
  */
 export const RequireRole: React.FC<RequireRoleProps> = ({ roles }) => {
@@ -50,6 +51,10 @@ export const RequireRole: React.FC<RequireRoleProps> = ({ roles }) => {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
     if (!user || !roles.includes(user.role)) {
+        // OWNER 영역으로 진입한 PENDING_OWNER 는 별도 안내 페이지로
+        if (user?.role === 'PENDING_OWNER' && roles.includes('OWNER')) {
+            return <Navigate to="/owner/pending" replace />;
+        }
         // 어떤 role이 필요했는지와 어느 경로에서 왔는지 쿼리로 전달해 안내 페이지에서 사용
         const requiredRole = roles[0] ?? 'OWNER';
         const from = encodeURIComponent(location.pathname);

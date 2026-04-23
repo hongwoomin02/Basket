@@ -11,9 +11,7 @@ class SignupRequest(BaseModel):
     password: str
     display_name: str
     phone: str | None = None
-    # MVP: 공개 가입에서 OWNER 역할을 선택할 수 있게 허용.
-    # TODO(security): Phase 5-후속 에서 OWNER 가입을 "승인 대기(PENDING_OWNER)" 상태로 저장하고
-    #   어드민 승인 이후에만 role=OWNER 로 승격하는 플로우로 교체할 것.
+    # OWNER 선택 시 백엔드에서 PENDING_OWNER 로 저장하고, 어드민이 /admin/users/{id}/approve-owner 로 승격.
     role: Literal["USER", "OWNER"] = "USER"
 
     @field_validator("password")

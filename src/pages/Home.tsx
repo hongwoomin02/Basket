@@ -17,6 +17,7 @@ import {
     List,
     MapPinned,
 } from 'lucide-react';
+import { Map as KakaoMap, MapMarker, CustomOverlayMap, useKakaoLoader } from 'react-kakao-maps-sdk';
 
 // ── 정적 UI 구성 (이전 home.json 에서 이관; 데이터가 아니라 "UI 카피/옵션") ──
 const EXPLORE_TITLE = '부산 실내·야외 농구 공간';
@@ -91,11 +92,20 @@ type PlaceRow = {
     to: string;
 };
 
+const KAKAO_KEY = import.meta.env.VITE_KAKAO_MAP_KEY as string | undefined;
+const BUSAN_CENTER = { lat: 35.1796, lng: 129.0756 };
+
 export const Home: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { role, mockMode, logEvent } = useMock();
     const { showToast } = useToast();
+
+    const [mapLoading, mapLoadError] = useKakaoLoader({
+        appkey: KAKAO_KEY ?? '',
+        libraries: [],
+    });
+    const [homeMapActiveId, setHomeMapActiveId] = useState<string | null>(null);
 
     // ── 서버 상태 ────────────────────────────────────────
     const { places: placeCards, isLoading: placesLoading, error: placesError } = usePlaces();
@@ -501,80 +511,118 @@ export const Home: React.FC = () => {
                             </span>
                         </div>
                         <div
-                            onClick={() => navigate('/gyms')}
                             style={{
                                 position: 'relative',
                                 width: '100%',
                                 height: mapExpanded ? 260 : 180,
-                                background: 'linear-gradient(180deg, var(--gray-100) 0%, var(--gray-200) 100%)',
                                 borderRadius: 'var(--r-md)',
                                 border: '1px solid var(--border-light)',
-                                cursor: 'pointer',
                                 overflow: 'hidden',
                                 transition: 'height 0.25s ease',
+                                background: 'var(--bg-surface)',
                             }}
                         >
-                            {displayGymPins.map((pin) => {
-                                const pos = pinPosition(pin.lat, pin.lng);
-                                const isOutdoor = pin.pinType === 'outdoor';
-                                return (
-                                    <div
-                                        key={pin.gymId}
-                                        title={pin.name}
-                                        style={{
-                                            position: 'absolute',
-                                            left: pos.left,
-                                            top: pos.top,
-                                            width: '18px',
-                                            height: '18px',
-                                            borderRadius: '50%',
-                                            background: isOutdoor ? 'var(--brand-energy)' : pin.available ? 'var(--status-success)' : 'var(--status-error)',
-                                            border: '2px solid white',
-                                            boxShadow: 'var(--shadow-md)',
-                                            transform: 'translate(-50%, -50%)',
-                                        }}
-                                    />
-                                );
-                            })}
-                            {displayOutdoorPins.map((pin) => {
-                                const pos = pinPosition(pin.lat, pin.lng);
-                                return (
-                                    <div
-                                        key={pin.placeId}
-                                        title={pin.name}
-                                        style={{
-                                            position: 'absolute',
-                                            left: pos.left,
-                                            top: pos.top,
-                                            width: '16px',
-                                            height: '16px',
-                                            borderRadius: '50%',
-                                            background: 'var(--brand-energy)',
-                                            border: '2px solid white',
-                                            boxShadow: 'var(--shadow-md)',
-                                            transform: 'translate(-50%, -50%)',
-                                        }}
-                                    />
-                                );
-                            })}
-                            <div style={{ position: 'absolute', bottom: '8px', left: '12px', right: '12px', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', fontSize: '11px', fontWeight: 700 }}>
-                                {mapSummaryView.legend?.map((L) => (
-                                    <span key={L.type} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--gray-700)' }}>
-                                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: L.type === 'outdoor' ? 'var(--brand-energy)' : 'var(--status-success)' }} />
-                                        {L.label}
-                                    </span>
-                                ))}
-                                {!mapSummaryView.legend?.length && (
-                                    <>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--status-success)' }} /> 대관가능
-                                        </span>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--status-error)' }} /> 마감/불가
-                                        </span>
-                                    </>
-                                )}
-                            </div>
+                            {!KAKAO_KEY ? (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--gray-500)', fontSize: '13px', fontWeight: 600 }}>
+                                    지도 API 키가 설정되지 않았습니다.
+                                </div>
+                            ) : mapLoadError ? (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--gray-500)', fontSize: '13px', fontWeight: 600 }}>
+                                    지도를 불러오지 못했습니다.
+                                </div>
+                            ) : mapLoading ? (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--gray-500)', fontSize: '13px', fontWeight: 600 }}>
+                                    지도 불러오는 중...
+                                </div>
+                            ) : (
+                                <KakaoMap
+                                    center={BUSAN_CENTER}
+                                    level={8}
+                                    style={{ width: '100%', height: '100%' }}
+                                >
+                                    {displayGymPins.map((pin) => (
+                                        <MapMarker
+                                            key={pin.gymId}
+                                            position={{ lat: pin.lat, lng: pin.lng }}
+                                            onClick={() => setHomeMapActiveId(pin.gymId)}
+                                            title={pin.name}
+                                        />
+                                    ))}
+                                    {displayOutdoorPins.map((pin) => (
+                                        <MapMarker
+                                            key={pin.placeId}
+                                            position={{ lat: pin.lat, lng: pin.lng }}
+                                            onClick={() => setHomeMapActiveId(pin.placeId)}
+                                            title={pin.name}
+                                            image={{
+                                                src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="32" viewBox="0 0 24 32"><path fill="%23FF6B35" d="M12 0C7.58 0 4 3.58 4 8c0 7 8 24 8 24s8-17 8-24c0-4.42-3.58-8-8-8z" /></svg>',
+                                                size: { width: 24, height: 32 },
+                                                options: { offset: { x: 12, y: 32 } },
+                                            }}
+                                        />
+                                    ))}
+                                    {homeMapActiveId && (() => {
+                                        const activeGym = displayGymPins.find((p) => p.gymId === homeMapActiveId);
+                                        if (activeGym) {
+                                            return (
+                                                <CustomOverlayMap
+                                                    key={`overlay-${homeMapActiveId}`}
+                                                    position={{ lat: activeGym.lat, lng: activeGym.lng }}
+                                                    yAnchor={1.4}
+                                                >
+                                                    <div
+                                                        onClick={() => {
+                                                            const place = placeCards.find((p) => p.id === activeGym.gymId);
+                                                            if (place) navigate(place.to);
+                                                        }}
+                                                        style={{
+                                                            background: 'white',
+                                                            borderRadius: 8,
+                                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                                            padding: '10px 12px',
+                                                            minWidth: 160,
+                                                            cursor: 'pointer',
+                                                            border: '1px solid var(--border-light)',
+                                                            fontSize: 13,
+                                                            fontWeight: 800,
+                                                        }}
+                                                    >
+                                                        {activeGym.name}
+                                                    </div>
+                                                </CustomOverlayMap>
+                                            );
+                                        }
+                                        const activeOutdoor = displayOutdoorPins.find((p) => p.placeId === homeMapActiveId);
+                                        if (activeOutdoor) {
+                                            return (
+                                                <CustomOverlayMap
+                                                    key={`overlay-${homeMapActiveId}`}
+                                                    position={{ lat: activeOutdoor.lat, lng: activeOutdoor.lng }}
+                                                    yAnchor={1.4}
+                                                >
+                                                    <div
+                                                        onClick={() => navigate(`/place/outdoor/${activeOutdoor.placeId}`)}
+                                                        style={{
+                                                            background: 'white',
+                                                            borderRadius: 8,
+                                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                                            padding: '10px 12px',
+                                                            minWidth: 160,
+                                                            cursor: 'pointer',
+                                                            border: '1px solid var(--border-light)',
+                                                            fontSize: 13,
+                                                            fontWeight: 800,
+                                                        }}
+                                                    >
+                                                        {activeOutdoor.name}
+                                                    </div>
+                                                </CustomOverlayMap>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+                                </KakaoMap>
+                            )}
                         </div>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                             <button
@@ -593,19 +641,17 @@ export const Home: React.FC = () => {
                             </button>
                             <button
                                 type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setMapUiMode('map');
-                                    setMapExpanded(true);
-                                    logEvent('HOME_TOGGLE_MAP_MODE', { mode: 'map' });
+                                onClick={() => {
+                                    logEvent('HOME_OPEN_FULLSCREEN_MAP', {});
+                                    navigate('/busan');
                                 }}
-                                className={`filter-chip ${mapUiMode === 'map' ? 'active' : ''}`}
+                                className="filter-chip active"
                                 style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '6px', padding: '10px' }}
                             >
-                                <Map size={16} /> 지도 보기
+                                <Map size={16} /> 전체보기
                             </button>
                         </div>
-                        <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '8px', fontWeight: 500 }}>지도 탭하면 체육관 목록으로 이동</p>
+                        <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '8px', fontWeight: 500 }}>마커 탭하면 상세 페이지로 이동 · 전체보기로 더 크게 확인</p>
                     </div>
 
                 </>

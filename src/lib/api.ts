@@ -220,7 +220,24 @@ export const adminApi = {
 
   restoreReview: (reviewId: string) =>
     client.post(`/admin/reviews/${reviewId}/restore`).then(unwrap),
+
+  pendingOwners: () =>
+    client.get<{ data: { pendingOwners: PendingOwnerRow[] } }>("/admin/pending-owners").then(unwrap),
+
+  approveOwner: (userId: string) =>
+    client.post<{ data: { id: string; role: string } }>(`/admin/users/${userId}/approve-owner`).then(unwrap),
+
+  rejectOwner: (userId: string) =>
+    client.post<{ data: { id: string; role: string } }>(`/admin/users/${userId}/reject-owner`).then(unwrap),
 };
+
+export interface PendingOwnerRow {
+  id: string;
+  email: string;
+  displayName: string;
+  phone: string | null;
+  createdAt: string;
+}
 
 // ── Types ─────────────────────────────────────────────
 export interface PlaceItem {

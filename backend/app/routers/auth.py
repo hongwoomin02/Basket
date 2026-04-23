@@ -37,13 +37,15 @@ async def signup(
             status_code=409,
             detail={"code": "DUPLICATE_EMAIL", "message": "이미 사용 중인 이메일입니다."},
         )
+    # OWNER 가입은 운영진 승인 후 활성화 → 일단 PENDING_OWNER 로 저장.
+    role_to_save = "PENDING_OWNER" if body.role == "OWNER" else body.role
     user = User(
         id=uuid.uuid4(),
         email=body.email,
         hashed_password=hash_password(body.password),
         display_name=body.display_name,
         phone=body.phone,
-        role=body.role,  # MVP: 클라이언트 요청 role 그대로 저장. 승인 플로우는 Phase 5에서 도입.
+        role=role_to_save,
     )
     db.add(user)
     await db.flush()
@@ -92,13 +94,18 @@ async def refresh_token(request: Request, body: RefreshRequest):
         )
 
     old_jti = payload.get("jti")
-    if old_jti and is_jti_revoked(old_jti):
+    if not old_jti:
+        # jti 가 없는 토큰은 회전 추적이 불가능하므로 거절 (방어적 코딩)
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "INVALID_TOKEN", "message": "토큰 형식이 올바르지 않습니다."},
+        )
+    if is_jti_revoked(old_jti):
         raise HTTPException(
             status_code=401,
             detail={"code": "TOKEN_REUSED", "message": "이미 사용된 refresh 토큰입니다. 다시 로그인해 주세요."},
         )
-    if old_jti:
-        revoke_jti(old_jti)
+    revoke_jti(old_jti)
 
     new_payload = {"sub": payload["sub"], "role": payload["role"]}
     return Response(

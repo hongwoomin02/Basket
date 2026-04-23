@@ -1,14 +1,32 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Header } from '../components/Header';
 import busanData from '../data/routes/busan.json';
 import { useNavigate } from 'react-router-dom';
 import { useMock } from '../store/MockProvider';
 import { MapPin, ChevronRight } from 'lucide-react';
+import { Map, MapMarker, CustomOverlayMap, useKakaoLoader } from 'react-kakao-maps-sdk';
+import { usePlaces, PlaceCardData } from '../hooks/usePlaces';
+
+const KAKAO_KEY = import.meta.env.VITE_KAKAO_MAP_KEY as string | undefined;
+// 부산 중심 (서면 근처)
+const BUSAN_CENTER = { lat: 35.1796, lng: 129.0756 };
 
 export const Busan: React.FC = () => {
     const { view, page } = busanData;
     const navigate = useNavigate();
     const { logEvent } = useMock();
+
+    const [loading, loadError] = useKakaoLoader({
+        appkey: KAKAO_KEY ?? '',
+        libraries: [],
+    });
+    const { places, isLoading: placesLoading } = usePlaces();
+    const [activeId, setActiveId] = useState<string | null>(null);
+
+    const placesWithCoord = places.filter(
+        (p): p is PlaceCardData & { lat: number; lng: number } => p.lat !== null && p.lng !== null
+    );
+    const activePlace = placesWithCoord.find((p) => p.id === activeId) ?? null;
 
     const handleCardClick = (to: string) => {
         logEvent('CLICK_PREVIEW_CARD', { to });
@@ -24,8 +42,88 @@ export const Busan: React.FC = () => {
                     부산에서 바로 찾기
                 </h2>
                 <p style={{ fontSize: '13px', color: 'var(--gray-500)', fontWeight: 500 }}>
-                    대관 가능한 체육관을 한 화면에서 탐색해 보세요.
+                    지도에서 위치를 확인하고 바로 예약하세요.
                 </p>
+            </div>
+
+            {/* 카카오 지도 */}
+            <div style={{ padding: '12px 16px 0' }}>
+                {!KAKAO_KEY ? (
+                    <div style={mapPlaceholderStyle}>
+                        VITE_KAKAO_MAP_KEY 환경변수가 설정되지 않았습니다.
+                    </div>
+                ) : loadError ? (
+                    <div style={mapPlaceholderStyle}>지도를 불러오지 못했습니다.</div>
+                ) : loading || placesLoading ? (
+                    <div style={mapPlaceholderStyle}>지도 불러오는 중...</div>
+                ) : (
+                    <div style={{ position: 'relative' }}>
+                        <Map
+                            center={BUSAN_CENTER}
+                            level={8}
+                            style={{ width: '100%', height: '320px', borderRadius: 'var(--r-md)' }}
+                        >
+                            {placesWithCoord.map((p) => (
+                                <MapMarker
+                                    key={p.id}
+                                    position={{ lat: p.lat, lng: p.lng }}
+                                    onClick={() => setActiveId(p.id)}
+                                    title={p.name}
+                                />
+                            ))}
+                            {activePlace && (
+                                <CustomOverlayMap
+                                    position={{ lat: activePlace.lat, lng: activePlace.lng }}
+                                    yAnchor={1.4}
+                                >
+                                    <div
+                                        onClick={() => navigate(activePlace.to)}
+                                        style={{
+                                            background: 'white',
+                                            borderRadius: 8,
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                            padding: '10px 12px',
+                                            minWidth: 180,
+                                            cursor: 'pointer',
+                                            border: '1px solid var(--border-light)',
+                                        }}
+                                    >
+                                        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 2 }}>
+                                            {activePlace.name}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>
+                                            {activePlace.district} · {activePlace.placeType}
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontSize: 11,
+                                                fontWeight: 700,
+                                                color: 'var(--brand-trust)',
+                                                marginTop: 6,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 2,
+                                            }}
+                                        >
+                                            상세 보기 <ChevronRight size={12} />
+                                        </div>
+                                    </div>
+                                </CustomOverlayMap>
+                            )}
+                        </Map>
+                        <div
+                            style={{
+                                marginTop: 8,
+                                fontSize: 11,
+                                color: 'var(--gray-500)',
+                                fontWeight: 600,
+                                textAlign: 'right',
+                            }}
+                        >
+                            마커 {placesWithCoord.length}곳 · 마커를 눌러 상세를 확인하세요
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div style={{ padding: '16px 16px 24px' }}>
@@ -72,4 +170,18 @@ export const Busan: React.FC = () => {
             </div>
         </div>
     );
+};
+
+const mapPlaceholderStyle: React.CSSProperties = {
+    width: '100%',
+    height: 320,
+    borderRadius: 'var(--r-md)',
+    background: 'var(--bg-surface)',
+    border: '1px dashed var(--border-medium)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--gray-500)',
+    fontSize: 13,
+    fontWeight: 600,
 };

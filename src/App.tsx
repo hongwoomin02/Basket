@@ -31,6 +31,7 @@ import { OwnerReservations } from './pages/OwnerReservations';
 import { OwnerPaymentMethods } from './pages/OwnerPaymentMethods';
 import { OwnerSchedule } from './pages/OwnerSchedule';
 import { OwnerPricingPolicy } from './pages/OwnerPricingPolicy';
+import { OwnerPending } from './pages/OwnerPending';
 import { Organizer } from './pages/Organizer';
 import { Ops } from './pages/Ops';
 import { OpsReviews } from './pages/OpsReviews';
@@ -62,6 +63,11 @@ function App() {
                                     <Route path="/my/notifications" element={<NotificationSettings />} />
                                     <Route path="/my/terms" element={<Terms />} />
                                     <Route path="/my/reservations" element={<MyReservations />} />
+                                </Route>
+
+                                {/* ── Owner pending (PENDING_OWNER 만 의미 있으나 모든 로그인 사용자 접근 허용) ── */}
+                                <Route element={<RequireAuth />}>
+                                    <Route path="/owner/pending" element={<OwnerPending />} />
                                 </Route>
 
                                 {/* ── Owner / Admin only ────────────────────── */}

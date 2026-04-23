@@ -111,3 +111,65 @@ async def restore_review(
     current_user: Annotated[User, Depends(admin_required)],
 ):
     return await _moderate_review(review_id, "RESTORE", "VISIBLE", current_user.id, db)
+
+
+# ── OWNER 가입 승인 ─────────────────────────────────────────────────────
+@router.get("/pending-owners")
+async def list_pending_owners(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(admin_required)],
+):
+    result = await db.execute(
+        select(User).where(User.role == "PENDING_OWNER").order_by(User.created_at.desc())
+    )
+    users = result.scalars().all()
+    rows = [
+        {
+            "id": str(u.id),
+            "email": u.email,
+            "displayName": u.display_name,
+            "phone": u.phone,
+            "createdAt": u.created_at.isoformat(),
+        }
+        for u in users
+    ]
+    return Response(data={"pendingOwners": rows})
+
+
+@router.post("/users/{user_id}/approve-owner")
+async def approve_owner(
+    user_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(admin_required)],
+):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, {"code": "NOT_FOUND", "message": "사용자를 찾을 수 없습니다."})
+    if user.role != "PENDING_OWNER":
+        raise HTTPException(
+            400,
+            {"code": "NOT_PENDING", "message": "승인 대기 상태가 아닙니다."},
+        )
+    user.role = "OWNER"
+    await db.flush()
+    return Response(data={"id": str(user.id), "role": user.role})
+
+
+@router.post("/users/{user_id}/reject-owner")
+async def reject_owner(
+    user_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(admin_required)],
+):
+    """반려: PENDING_OWNER 를 일반 USER 로 강등."""
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, {"code": "NOT_FOUND", "message": "사용자를 찾을 수 없습니다."})
+    if user.role != "PENDING_OWNER":
+        raise HTTPException(
+            400,
+            {"code": "NOT_PENDING", "message": "승인 대기 상태가 아닙니다."},
+        )
+    user.role = "USER"
+    await db.flush()
+    return Response(data={"id": str(user.id), "role": user.role})

@@ -41,6 +41,8 @@ export const Signup: React.FC = () => {
         if (!email.trim()) return '이메일을 입력해주세요.';
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '올바른 이메일 형식이 아닙니다.';
         if (password.length < 8) return '비밀번호는 8자 이상이어야 합니다.';
+        if (!/[A-Za-z]/.test(password)) return '비밀번호에는 영문이 1자 이상 포함되어야 합니다.';
+        if (!/\d/.test(password)) return '비밀번호에는 숫자가 1자 이상 포함되어야 합니다.';
         if (signupType === 'OWNER' && !isBizValid) return '사업자 번호 인증이 필요합니다.';
         return null;
     };
@@ -63,18 +65,22 @@ export const Signup: React.FC = () => {
             });
             // 백엔드는 signup에서 토큰을 주지 않으므로 곧장 login을 이어 호출한다.
             await login(email, password);
-            // OWNER 가입은 곧장 파트너 콘솔로, USER는 홈으로
-            navigate(signupType === 'OWNER' ? '/owner' : '/', { replace: true });
+            // OWNER 가입은 운영진 승인 전이라 대기 페이지로, USER는 홈으로
+            navigate(signupType === 'OWNER' ? '/owner/pending' : '/', { replace: true });
         } catch (err) {
             if (axios.isAxiosError(err)) {
                 const status = err.response?.status;
-                const detail = err.response?.data?.detail ?? err.response?.data?.error;
+                const detail = err.response?.data?.detail;
                 if (status === 409) {
                     setErrorMsg('이미 사용 중인 이메일입니다.');
-                } else if (status === 422) {
-                    setErrorMsg('입력값을 다시 확인해주세요.');
+                } else if (status === 422 && Array.isArray(detail) && detail.length > 0) {
+                    // Pydantic validation error: 첫 번째 메시지에서 "Value error, " 접두어 제거
+                    const raw = String(detail[0]?.msg ?? '입력값을 다시 확인해주세요.');
+                    setErrorMsg(raw.replace(/^Value error,\s*/, ''));
                 } else if (typeof detail?.message === 'string') {
                     setErrorMsg(detail.message);
+                } else if (status === 422) {
+                    setErrorMsg('입력값을 다시 확인해주세요.');
                 } else {
                     setErrorMsg('회원가입에 실패했습니다. 잠시 후 다시 시도해주세요.');
                 }
@@ -162,6 +168,9 @@ export const Signup: React.FC = () => {
                             }}
                             autoComplete="new-password"
                         />
+                        <p style={{ marginTop: 6, fontSize: 12, color: 'var(--gray-500)' }}>
+                            영문 + 숫자를 모두 포함해 8자 이상 (예: <code style={{ fontFamily: 'monospace' }}>abc12345</code>)
+                        </p>
                     </div>
 
                     {signupType === 'OWNER' && (

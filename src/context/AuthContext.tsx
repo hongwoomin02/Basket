@@ -4,7 +4,7 @@ import { authApi } from "../lib/api";
 interface AuthUser {
   id: string;
   email: string;
-  role: "USER" | "OWNER" | "ADMIN" | "ORGANIZER" | "OPS";
+  role: "USER" | "OWNER" | "ADMIN" | "ORGANIZER" | "OPS" | "PENDING_OWNER";
   displayName: string;
   phone: string | null;
   notificationEnabled: boolean;

@@ -1,13 +1,57 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { useMock } from '../store/MockProvider';
 import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, MessageSquare, Activity, ChevronRight } from 'lucide-react';
+import { ShieldCheck, MessageSquare, Activity, ChevronRight, UserCheck, Check, X } from 'lucide-react';
+import { adminApi, PendingOwnerRow } from '../lib/api';
 
 export const Ops: React.FC = () => {
     const { mockMode, setMockMode, eventLogs, clearLogs } = useMock();
     const { user } = useAuth();
+    const [pending, setPending] = useState<PendingOwnerRow[]>([]);
+    const [pendingLoading, setPendingLoading] = useState(true);
+    const [busyId, setBusyId] = useState<string | null>(null);
+
+    const loadPending = () => {
+        setPendingLoading(true);
+        adminApi
+            .pendingOwners()
+            .then((d) => setPending(d.pendingOwners))
+            .catch(() => setPending([]))
+            .finally(() => setPendingLoading(false));
+    };
+
+    useEffect(() => {
+        loadPending();
+    }, []);
+
+    const handleApprove = async (userId: string) => {
+        if (busyId) return;
+        setBusyId(userId);
+        try {
+            await adminApi.approveOwner(userId);
+            setPending((rows) => rows.filter((r) => r.id !== userId));
+        } catch {
+            alert('승인에 실패했습니다.');
+        } finally {
+            setBusyId(null);
+        }
+    };
+
+    const handleReject = async (userId: string) => {
+        if (busyId) return;
+        if (!window.confirm('이 신청을 반려하시겠습니까? 일반 사용자로 전환됩니다.')) return;
+        setBusyId(userId);
+        try {
+            await adminApi.rejectOwner(userId);
+            setPending((rows) => rows.filter((r) => r.id !== userId));
+        } catch {
+            alert('반려에 실패했습니다.');
+        } finally {
+            setBusyId(null);
+        }
+    };
 
     return (
         <div className="animate-fade-in" style={{ minHeight: '100vh', background: 'var(--bg-page)', paddingBottom: 40 }}>
@@ -40,6 +84,79 @@ export const Ops: React.FC = () => {
                         </div>
                         <ChevronRight size={16} color="var(--gray-400)" />
                     </Link>
+                </div>
+
+                {/* 파트너 가입 승인 */}
+                <h3 style={{ fontSize: 13, fontWeight: 800, color: 'var(--gray-600)', margin: '24px 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <UserCheck size={14} /> 파트너 가입 승인 대기 ({pending.length})
+                </h3>
+                <div className="card" style={{ padding: pending.length === 0 && !pendingLoading ? 16 : 0 }}>
+                    {pendingLoading ? (
+                        <div style={{ padding: 16, fontSize: 12, color: 'var(--gray-500)', textAlign: 'center' }}>
+                            불러오는 중...
+                        </div>
+                    ) : pending.length === 0 ? (
+                        <div style={{ fontSize: 12, color: 'var(--gray-500)', textAlign: 'center' }}>
+                            승인 대기 중인 파트너가 없습니다.
+                        </div>
+                    ) : (
+                        pending.map((row, idx) => (
+                            <div
+                                key={row.id}
+                                style={{
+                                    padding: 14,
+                                    borderTop: idx === 0 ? 'none' : '1px solid var(--border-light)',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                }}
+                            >
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 2 }}>
+                                        {row.displayName}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: 'var(--gray-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {row.email}
+                                        {row.phone && <span> · {row.phone}</span>}
+                                    </div>
+                                    <div style={{ fontSize: 10, color: 'var(--gray-400)', marginTop: 2 }}>
+                                        {new Date(row.createdAt).toLocaleString('ko-KR')}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                    <button
+                                        onClick={() => handleReject(row.id)}
+                                        disabled={busyId === row.id}
+                                        style={{
+                                            width: 36, height: 36, borderRadius: 8,
+                                            border: '1px solid var(--border-medium)',
+                                            background: 'white', color: 'var(--status-error)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            opacity: busyId === row.id ? 0.5 : 1,
+                                        }}
+                                        title="반려"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleApprove(row.id)}
+                                        disabled={busyId === row.id}
+                                        style={{
+                                            width: 36, height: 36, borderRadius: 8,
+                                            border: 'none',
+                                            background: 'var(--brand-trust)', color: 'white',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            opacity: busyId === row.id ? 0.5 : 1,
+                                        }}
+                                        title="승인"
+                                    >
+                                        <Check size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
 
                 {/* 개발자 디버그 콘솔 */}

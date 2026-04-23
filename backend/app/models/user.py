@@ -17,7 +17,10 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     hashed_password: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(
-        Enum("USER", "OWNER", "ADMIN", "ORGANIZER", "OPS", name="user_role"),
+        Enum(
+            "USER", "OWNER", "ADMIN", "ORGANIZER", "OPS", "PENDING_OWNER",
+            name="user_role",
+        ),
         nullable=False,
         default="USER",
     )
